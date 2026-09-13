@@ -1,0 +1,37 @@
+# One command for reviewers who have Docker: `docker compose up`
+# brings up PostgreSQL and the application, waits for the database to be healthy and
+# applies the schema on the first start.
+
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: webhook_rd
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d webhook_rd']
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    security_opt: [no-new-privileges:true]
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/webhook_rd?sslmode=disable
+      # Demo switches: allow replaying into a local receiver. Remove them for anything
+      # that is reachable from outside your machine.
+      # REPLAY_ALLOW_HOSTS: 127.0.0.1
+      # REPLAY_ALLOW_PRIVATE: 'true'
+    ports:
+      - '8080:8080'
+    security_opt: [no-new-privileges:true]
+
+volumes:
+  pgdata: {}

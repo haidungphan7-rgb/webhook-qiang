@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- The page manages light/dark itself (data-mantine-color-scheme); declaring it keeps
+       the browser from force-darkening selected elements on dark-mode systems, which
+       renders as part-light part-dark text on a light page. -->
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" sizes="48x48" type="image/png" href="/favicon-48x48.png" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAAAq1BMVEUAAABIjuJKkeJKkOJ
+JkeJKkOJIj+FJkttKkOJJkONJkOJKkOBKj+FLkOJJj+FMj+RJkttKkOJKkOIVKUL///8+esFHi9s0Z6NFh9Q4cLAwX5cZMU4bNlZQlOMkSHHP4fdbmuRCg
+sywz/KMuO1moucgQGYfPGD2+v7y9/3s8/zi7fuWv+4tWIsiRGyCsusuW5DZ6PmoyvGgxfB0qeg8dbkoT3wrVIS91/RtpuiUEj5AAAAAEnRSTlMAHfjkmHd
+eB+vGv46AalQ5FaiVwBTMAAACaElEQVRIx6WW6XaCMBCFRVnctZMEAogLboh7tbbv/2QdcAkDthyP3w+FnFwmd2ZIqBSw+lqv2zGMTren9a1KGZqpN2tVS
+KnWmrqp/T+9hZMVqaj1t0Qz6vCEuvFcYpkN+IOG+cxLmy6GLqxdXI4O/6JrufkfUMIHVehQip712wbKbLpeT08BHWwr52bO7zHmyOp7TJ2bDwM0n8GBI8t
+EMqPZvdsw6PyQ8zjc7Y4jzkc0hnELUKfrj3h8AnGGMSqmtObXEC0gfOI0uWDMP884PwChlQao0UF87njDkK0c8QgINe1JimK+soeJYCBCvoRCoiwdihG+E
+sFiclyt8tWzKv0mUNacf4oBCoYy+NkBpdkvWIDZikdT6QyYL0ChTPSUBZWmZRgIDPGkz3uVbmFwnFQsAI8xp6joVjrkXsi0NSKssL3APLmeMyETOqQv3AV
+zUtdHQBx2ZeuS7sgIHJ+xDYwPPE6bTs5vCt/LCtSSRJrKxPP6FpANPHFOiuiqJSnT9paxfTANl+j4HlI4e0di4Ll8mFZpxWIN7e/kNdiBfWXylViw8dd9p
+FUVzsUAY56wRm0G11EJrmmqNXDY+0kFofCzgo1AgWoNS1cRLkGUCHZ4ufWQTSoQmQi6pdp7ssD+PMXLKAyG90V7PvP3qQfV3srEBrM6mU1PEi/mNiBnKRw
+BKktoIfuK2mjVn1+GyV/aD3t/4E1Etg4tugnY99IO3Gue85Wua7ltRjqJZOGJW2UuuV4yihuZLaW04YEUrlD3DY1slaVUTbIZl9O2XtzuXz5Q3jqyyg/F9
+47d8oP9xU+H9z5OXv78+QVhHIpeT9m1ZwAAAABJRU5ErkJggg==" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="WebHook Tester" />
+  <link rel="manifest" href="/site.webmanifest" />
+
+  <title>Webhook 重放平台</title>
+  <meta name="description" content="创建收件箱、接收第三方请求、查看原始内容，并把事件重放到指定测试地址"/>
+
+  <!-- Apply the stored colour scheme before React mounts, otherwise `auto` flashes white. -->
+  <script>
+    try {
+      var s = localStorage.getItem('mantine-color-scheme-value') || 'auto'
+      var d = s === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : s
+      document.documentElement.setAttribute('data-mantine-color-scheme', d)
+    } catch (e) {}
+  </script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      height: 100%;
+      width: 100%;
+      background-color: #fff;
+      color: #010101;
+      font-size: 16px;
+    }
+
+    /*
+     * Follow the page's own scheme attribute, NOT prefers-color-scheme: the Mantine theme
+     * is user-selectable, so a dark-mode OS running the light theme must still get a light
+     * canvas. The old media query painted #242424 under a light page, and every unpainted
+     * region showed it through.
+     */
+    html[data-mantine-color-scheme='dark'] {
+      background-color: #242424;
+      color: #dcdcdc;
+    }
+
+    body, #root {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    #root {
+      flex-grow: 1;
+      align-items: stretch;
+    }
+
+    #please-wait-app-loading {
+      font-family: sans-serif;
+      font-size: 0.7em;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      width: 100%;
+
+      .loader {
+        display: inline-block;
+        opacity: 0;
+        transition: opacity;
+        animation: app-loading-spinner-fade-in ease 1300ms;
+        animation-iteration-count: 1;
+        animation-fill-mode: forwards;
+
+        &, .inner, .inner:before, .inner:after {
+          width: 100px;
+          height: 100px;
+        }
+
+        .inner {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          text-align: center;
+
+          &:before, &:after {
+            content: '';
+            border-radius: 50%;
+            position: absolute;
+            inset: 0;
+            box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.3) inset;
+          }
+
+          &:after {
+            box-shadow: 0 2px 0 #ff3d00 inset;
+            animation: app-loading-spinner-rotate 1350ms linear infinite;
+          }
+        }
+      }
+    }
+
+    @keyframes app-loading-spinner-rotate {
+      0%   { transform: rotate(0) }
+      100% { transform: rotate(360deg) }
+    }
+    @keyframes app-loading-spinner-fade-in {
+      30%  { opacity: 0 }
+      100% { opacity: 1 }
+    }
+  </style>
+</head>
+<body>
+<div id="root">
+  <div id="please-wait-app-loading">
+    <span class="loader">
+      <span class="inner">
+        正在加载…
+      </span>
+    </span>
+  </div>
+</div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+/*
+ * Global styles.
+ *
+ * NOTE: the upstream stylesheet scaled the ROOT font size up to 19/22px on large
+ * screens. Because Mantine sizes everything in rem, that inflated every control, gap and
+ * table row by 19-37% - exactly the opposite of what a developer tool wants. It is gone.
+ */
+
+:root {
+  --whq-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, 'Cascadia Code', 'Menlo', 'Consolas',
+    'Sarasa Mono SC', 'Noto Sans Mono CJK SC', 'Microsoft YaHei', monospace;
+}
+
+/*
+ * One border colour for the whole app.
+ *
+ * The selector is `html:root[...]` and not `:root[...]` on purpose: Mantine emits its own
+ * `--mantine-color-default-border` on `:root[data-mantine-color-scheme]` and its stylesheet
+ * is injected after this one. At equal specificity the later rule wins, so the cards kept
+ * Mantine's grey while everything else used ours - two different greys for "a border",
+ * which is exactly what this file exists to prevent. Adding the element selector raises
+ * the specificity just enough.
+ */
+html:root[data-mantine-color-scheme='light'] {
+  /* The default dimmed colour is only 3.0:1 on white; this one passes WCAG AA. */
+  --mantine-color-default-border: #e5e7eb;
+  --mantine-color-dimmed: #5c636a;
+}
+
+html:root[data-mantine-color-scheme='dark'] {
+  --mantine-color-default-border: #2b2f36;
+  --mantine-color-dimmed: #a0a6ad;
+}
+
+html,
+body {
+  font-size: 16px;
+}
+
+/*
+ * Paint the page canvas with the theme colour instead of the UA default. Without this,
+ * the browser canvas follows the OS (black on a dark-mode system), and on a light page
+ * any unpainted region reads as "half the page suddenly went black".
+ */
+body {
+  background: var(--mantine-color-body);
+}
+
+/* Visually hidden but reachable by screen readers and keyboard. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.visually-hidden:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* One consistent focus ring for the whole app. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--mantine-color-brand-filled);
+  outline-offset: 2px;
+  border-radius: var(--mantine-radius-sm);
+}
+
+/* 44px hit target for icon buttons that are 36px visually. */
+.mantine-ActionIcon-root {
+  position: relative;
+}
+
+.mantine-ActionIcon-root::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+/* Payloads, headers, URLs and cURL commands. */
+.whq-mono {
+  font-family: var(--whq-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  font-variant-ligatures: none;
+}
+
+/* Code blocks share the monospace stack and stay readable. */
+.mantine-CodeHighlight-code,
+.mantine-CodeHighlight-code pre,
+.mantine-CodeHighlight-code code {
+  font-family: var(--whq-mono) !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+}
+
+/*
+ * A newly arrived event: a left colour bar plus a very light background that fades out.
+ * The previous version repainted the whole row yellow, which was pure noise on a busy
+ * inbox.
+ */
+@keyframes whq-flash {
+  0% {
+    background: color-mix(in srgb, var(--mantine-color-brand-1) 70%, transparent);
+    box-shadow: inset 3px 0 0 var(--mantine-color-brand-filled);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+}
+
+.whq-row-fresh {
+  animation: whq-flash 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+/*
+ * Page entrance: one short fade with a 4px lift, nothing more.
+ *
+ * It exists so a navigation reads as "the page changed" instead of "the page blinked".
+ * 240ms is long enough to notice and short enough not to delay the first click; the lift
+ * is 4px because a larger travel starts to feel like the content is falling into place.
+ */
+@keyframes whq-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.whq-enter {
+  animation: whq-fade-in 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes whq-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.whq-pulse {
+  animation: whq-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Keep the information, drop the animation. */
+  .whq-row-fresh {
+    background: var(--mantine-color-brand-0);
+  }
+
+  /* Entrance included: `animation: none` rather than a near-zero duration, so the element
+     is never briefly invisible for someone who asked for no motion. */
+  .whq-enter {
+    animation: none;
+  }
+}

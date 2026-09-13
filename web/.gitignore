@@ -1,0 +1,11 @@
+## Vendor
+/node_modules
+
+## Distributive
+/dist
+# ...but keep the placeholder so that a fresh clone still builds without Node.
+!/dist/index.html
+
+## etc
+*.log
+/src/*-old

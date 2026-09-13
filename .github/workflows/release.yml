@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-amd64,   goos: linux,   goarch: amd64, ext: '' }
+          - { name: linux-arm64,   goos: linux,   goarch: arm64, ext: '' }
+          - { name: darwin-amd64,  goos: darwin,  goarch: amd64, ext: '' }
+          - { name: darwin-arm64,  goos: darwin,  goarch: arm64, ext: '' }
+          - { name: windows-amd64, goos: windows, goarch: amd64, ext: '.exe' }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # git describe drives the version, so tags and full history are required.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # MUST run before the build: web/embed.go embeds web/dist. No `go generate` here on
+      # purpose - that would only write the placeholder if dist were missing, and if dist
+      # is missing after this step the step below fails the job instead of silently
+      # shipping a placeholder UI.
+      - name: Build the frontend
+        run: npm ci --prefix web && npm run build --prefix web
+
+      # The build gate for "the placeholder leaked into the release". `status --json`
+      # reports the same thing at runtime, but it also depends on a running database, so
+      # it is a product self-check, not a gate.
+      - name: Assert the frontend is a real build, not the placeholder
+        run: |
+          if [ ! -s web/dist/index.html ] || grep -q '前端尚未构建' web/dist/index.html; then
+            echo "::error::web/dist/index.html is the placeholder - 'npm run build' did not run or failed"
+            exit 1
+          fi
+
+      - name: Build
+        env:
+          CGO_ENABLED: '0'
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          go build -trimpath \
+            -ldflags "-s -w -X 'github.com/yuandzhang/webhook-zq/internal/version.version=${GITHUB_REF_NAME}' -X 'github.com/yuandzhang/webhook-zq/internal/version.buildTime='$(date -u +%Y-%m-%dT%H:%M:%SZ)'" \
+            -o "dist/webhook-zq-${{ matrix.name }}${{ matrix.ext }}" ./cmd/webhook-tester
+
+      # Runtime counterpart of the grep above, on the one target we can execute here.
+      - name: Assert the binary itself reports an embedded frontend
+        if: matrix.goos == 'linux'
+        run: |
+          test "$(./dist/webhook-zq-${{ matrix.name }} status --json | jq -r '.frontend_embedded')" = "true"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: webhook-zq-${{ matrix.name }}
+          path: dist/webhook-zq-${{ matrix.name }}${{ matrix.ext }}
+
+  release:
+    name: publish the release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && shasum -a 256 * > checksums.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}   # v1.4.0-rc1 -> prerelease

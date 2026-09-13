@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Every job that compiles Go needs `go generate ./web/...` first: web/embed.go does
+  # //go:embed dist, and a clean checkout has no web/dist. Forgetting it is not a
+  # "build is slower" mistake - the embed directive fails outright.
+  go:
+    name: go build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Generate the frontend placeholder
+        run: go generate ./web/...
+
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -race ./internal/... ./cmd/...
+      - run: go test ./web/...
+
+  web:
+    name: frontend lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # web/package.json requires node >= 24 (engines + volta).
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --prefix web
+      - run: npm run lint --prefix web
+      - run: npm run test --prefix web
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Same reason as the go job: golangci-lint type-checks the package, so web/dist
+      # has to exist or the embed directive fails and the whole job goes red.
+      - name: Generate the frontend placeholder
+        run: go generate ./web/...
+
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          # .golangci.yml is `version: "2"`, which needs a v2 binary. Pin the patch once
+          # you have a known-good run.
+          version: v2.1
+
+  # The 67+ assertions in scripts/acceptance/*.ps1 deliberately stay out of CI: they use
+  # Get-NetTCPConnection, a Windows-only cmdlet, so they cannot pass here even with pwsh
+  # installed. This job is the portable subset - it catches the failures that actually
+  # happen (cannot build, cannot reach PostgreSQL, settings shape drifted) without
+  # needing PowerShell at all.
+  smoke:
+    name: smoke (real PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: webhook_rd
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go generate ./web/...
+      - run: go build -o ./bin/webhook-zq ./cmd/webhook-tester
+
+      - name: Start the server and assert the API answers
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/webhook_rd?sslmode=disable
+        run: |
+          set -euo pipefail
+          ./bin/webhook-zq start --port 8080 > server.log 2>&1 &
+          for _ in $(seq 1 60); do curl -sf http://127.0.0.1:8080/healthz && break; sleep 1; done
+          id=$(curl -sf -XPOST http://127.0.0.1:8080/api/v1/inboxes \
+            -H 'content-type: application/json' -d '{"name":"ci"}' | jq -r .id)
+          test -n "$id" && test "$id" != "null"
+          curl -sf "http://127.0.0.1:8080/api/v1/inboxes/$id"
+          # Guards the null-vs-[] regression: replay_allow_hosts must always be an array.
+          curl -sf http://127.0.0.1:8080/api/v1/settings | jq -e '.replay_allow_hosts | type == "array"'
+
+      - name: Server log (on failure)
+        if: failure()
+        run: cat server.log

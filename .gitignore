@@ -1,0 +1,57 @@
+﻿## IDEs
+/nbproject
+/.idea
+
+## Binaries
+/app
+/webhook-tester
+/webhook-zq
+/wh.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Cross compiled artefacts (bin/ is a build output, never commit it)
+/bin/
+webhook-zq-linux-*
+webhook-zq-darwin-*
+webhook-zq-tray*
+
+# Local runtime state (may contain secrets or a database connection string)
+webhook-zq.json
+webhook-zq-background.cmd
+backup-*.sql
+
+## Local run artefacts
+*.log
+smoke.*.log
+e2e.*.log
+
+## Generated code
+*.gen.go
+*_enum.go
+*.pb.go
+
+## Temp dirs & trash
+*.env
+/__old__
+/temp
+/tmp
+.DS_Store
+
+## Built frontend (generated; web/embed.go needs the directory, the stub generator recreates it)
+/web/dist/
+/dist/
+
+## Logs
+/logs/
+
+## Local backup copies of the built frontend (never commit)
+/web/dist*.bak/
+
+## AI collaboration log (docs/ai-logs/)
+## How this project was built - not part of the product. A stranger cloning the repo wants
+## the tool, not our conversation history, so it stays out of every branch.
+/docs/ai-logs/
