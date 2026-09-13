@@ -66,9 +66,11 @@ jobs:
 
       - uses: golangci/golangci-lint-action@v7
         with:
-          # .golangci.yml is `version: "2"`, which needs a v2 binary. Pin the patch once
-          # you have a known-good run.
-          version: v2.1
+          # .golangci.yml is `version: "2"`, which needs a v2 binary. The binary must also
+          # be built with Go >= 1.26: v2.1 (built with go1.24) refuses to load the config
+          # with "the Go language version used to build golangci-lint is lower than the
+          # targeted Go version". v2.13.2 declares `go 1.26.0`.
+          version: v2.13.2
 
   # The 67+ assertions in scripts/acceptance/*.ps1 deliberately stay out of CI: they use
   # Get-NetTCPConnection, a Windows-only cmdlet, so they cannot pass here even with pwsh

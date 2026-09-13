@@ -1,0 +1,63 @@
+name: Bug 报告
+description: 某个功能没有按预期工作
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！先按 README 的「快速开始」确认环境没问题，再尽量填全下面的信息——
+        一份带 `doctor` 输出的 issue 通常当天就能定位。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 你做了什么、期望发生什么、实际发生了什么。截图可以直接粘贴。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 启动 webhook-zq start --port 8080
+        2. ……
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 安装 / 运行方式
+      options:
+        - Release 下载的二进制
+        - Docker / docker compose
+        - 源码构建（make / make.ps1 / dev.ps1）
+        - Windows 桌面工具（托盘 / 启动器）
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: '`webhook-zq --version` 的输出'
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Docker 容器
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断输出
+      description: >-
+        `webhook-zq doctor` 与 `webhook-zq status --json` 的输出。
+        status 里的数据库连接串已自动脱敏，但仍请检查有没有你不想公开的内容。
+      render: console
