@@ -63,8 +63,11 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           mkdir -p dist
+          # No quotes around the -X values: cmd/link does not strip shell quotes,
+          # a literal ' would end up in the symbol name and fail the link step.
+          # Both values (tag name, UTC timestamp) are space-free, so this is safe.
           go build -trimpath \
-            -ldflags "-s -w -X 'github.com/yuandzhang/webhook-zq/internal/version.version=${GITHUB_REF_NAME}' -X 'github.com/yuandzhang/webhook-zq/internal/version.buildTime='$(date -u +%Y-%m-%dT%H:%M:%SZ)'" \
+            -ldflags "-s -w -X github.com/yuandzhang/webhook-zq/internal/version.version=${GITHUB_REF_NAME} -X github.com/yuandzhang/webhook-zq/internal/version.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o "dist/webhook-zq-${{ matrix.name }}${{ matrix.ext }}" ./cmd/webhook-tester
 
       # Runtime counterpart of the grep above, on the one target we can execute here.
