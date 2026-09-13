@@ -70,9 +70,11 @@ jobs:
             -ldflags "-s -w -X github.com/yuandzhang/webhook-zq/internal/version.version=${GITHUB_REF_NAME} -X github.com/yuandzhang/webhook-zq/internal/version.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o "dist/webhook-zq-${{ matrix.name }}${{ matrix.ext }}" ./cmd/webhook-tester
 
-      # Runtime counterpart of the grep above, on the one target we can execute here.
+      # Runtime counterpart of the grep above, on the one target this x64 runner
+      # can actually execute. The arm64/darwin/windows binaries are cross-compiled
+      # and cannot run here (Exec format error).
       - name: Assert the binary itself reports an embedded frontend
-        if: matrix.goos == 'linux'
+        if: matrix.name == 'linux-amd64'
         run: |
           test "$(./dist/webhook-zq-${{ matrix.name }} status --json | jq -r '.frontend_embedded')" = "true"
 
