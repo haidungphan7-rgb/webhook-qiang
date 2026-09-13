@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -70,6 +71,11 @@ func NewCommand(log *zap.Logger) *cli.Command {
 			},
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
+			if c.Uint("port") > math.MaxUint16 {
+				return fmt.Errorf("--port %d is out of range (0-65535)", c.Uint("port"))
+			}
+
+			// #nosec G115 -- bounded by the explicit check above.
 			port := uint16(c.Uint("port"))
 
 			// The config file is the layer between the environment and the defaults, so a
@@ -258,10 +264,13 @@ func pidListeningOn(port uint16) int {
 
 	switch runtime.GOOS {
 	case "windows":
+		// #nosec G204 -- fixed command, no interpolated arguments.
 		out, err = exec.Command("netstat", "-ano", "-p", "TCP").Output()
 	case "darwin":
+		// #nosec G204 -- fixed command; the only variable is the validated port number.
 		out, err = exec.Command("lsof", "-nP", "-iTCP:"+strconv.Itoa(int(port)), "-sTCP:LISTEN", "-t").Output()
 	case "linux":
+		// #nosec G204 -- fixed command; the only variable is the validated port number.
 		out, err = exec.Command("ss", "-ltnpH",
 			fmt.Sprintf("sport = :%d", port)).Output()
 	default:
@@ -334,8 +343,8 @@ func parsePid(goos, out string, port uint16) int {
 }
 
 func processPath(pid int) string {
-	switch runtime.GOOS {
-	case "windows":
+	if runtime.GOOS == "windows" {
+		// #nosec G204 -- fixed command; the pid comes from the local port table.
 		out, err := exec.Command("wmic", "process", "where",
 			fmt.Sprintf("ProcessId=%d", pid), "get", "ExecutablePath", "/value").Output()
 		if err != nil {

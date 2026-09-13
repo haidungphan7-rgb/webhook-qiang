@@ -41,28 +41,28 @@ const (
 
 // Inbox is a webhook receive endpoint owned by the user.
 type Inbox struct {
-	ID         uuid.UUID `json:"id"`
-	OwnerKey   string    `json:"owner_key"`
-	Name       string    `json:"name"`
-	Token      string    `json:"token"`
-	Enabled    bool      `json:"enabled"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	EventCount int       `json:"event_count,omitempty"` // populated by list queries only
+	ID          uuid.UUID  `json:"id"`
+	OwnerKey    string     `json:"owner_key"`
+	Name        string     `json:"name"`
+	Token       string     `json:"token"`
+	Enabled     bool       `json:"enabled"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	EventCount  int        `json:"event_count,omitempty"` // populated by list queries only
 	LastEventAt *time.Time `json:"last_event_at,omitempty"`
 
 	// Custom response returned to the webhook sender (a debugging aid, not required by
 	// the task, but extremely useful to simulate 500s and slow endpoints).
-	ResponseCode     int          `json:"response_code"`
-	ResponseHeaders  []HttpHeader `json:"response_headers"`
-	ResponseBody     []byte       `json:"-"`
-	ResponseDelayMS  int          `json:"response_delay_ms"`
+	ResponseCode    int          `json:"response_code"`
+	ResponseHeaders []HttpHeader `json:"response_headers"`
+	ResponseBody    []byte       `json:"-"`
+	ResponseDelayMS int          `json:"response_delay_ms"`
 
 	// Signing (optional feature).
-	SigningSecret    []byte `json:"-"`                  // plaintext, encrypted at rest
-	SignatureHeader  string `json:"signature_header"`   // e.g. X-Signature
-	SignatureScheme  string `json:"signature_scheme"`   // hmac-sha256-hex | sha256-prefixed
-	RequireSignature bool   `json:"require_signature"`  // reject (401) when invalid
+	SigningSecret    []byte `json:"-"`                 // plaintext, encrypted at rest
+	SignatureHeader  string `json:"signature_header"`  // e.g. X-Signature
+	SignatureScheme  string `json:"signature_scheme"`  // hmac-sha256-hex | sha256-prefixed
+	RequireSignature bool   `json:"require_signature"` // reject (401) when invalid
 
 	// Retention (optional feature, defaults applied on create).
 	RetentionMaxEvents int `json:"retention_max_events"`
@@ -71,43 +71,43 @@ type Inbox struct {
 
 // Event is a captured webhook request.
 type Event struct {
-	ID           uuid.UUID  `json:"id"`
-	InboxID      uuid.UUID  `json:"inbox_id"`
-	Method       string     `json:"method"`
-	Path         string     `json:"path"`
-	Query        string     `json:"query"`
-	ContentType  string     `json:"content_type"`
-	Headers      []HttpHeader `json:"headers"`
-	Body         []byte     `json:"-"`
+	ID          uuid.UUID    `json:"id"`
+	InboxID     uuid.UUID    `json:"inbox_id"`
+	Method      string       `json:"method"`
+	Path        string       `json:"path"`
+	Query       string       `json:"query"`
+	ContentType string       `json:"content_type"`
+	Headers     []HttpHeader `json:"headers"`
+	Body        []byte       `json:"-"`
 	// BodyText is a searchable mirror of Body. It is only filled when the body is valid
 	// UTF-8 without NUL bytes; binary payloads stay empty and are simply not searchable.
 	// Never used for display or replay - those always read Body.
-	BodyText     string     `json:"-"`
-	BodySize     int        `json:"body_size"`
-	ClientIP     string     `json:"client_ip"`
-	SignatureValid *bool    `json:"signature_valid"` // nil = not checked
-	CreatedAt    time.Time  `json:"created_at"`
+	BodyText       string    `json:"-"`
+	BodySize       int       `json:"body_size"`
+	ClientIP       string    `json:"client_ip"`
+	SignatureValid *bool     `json:"signature_valid"` // nil = not checked
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // ReplayAttempt is one execution of "send this event to that URL".
 type ReplayAttempt struct {
-	ID               uuid.UUID  `json:"id"`
-	EventID          uuid.UUID  `json:"event_id"`
-	InboxID          uuid.UUID  `json:"inbox_id"`
-	AttemptNo        int        `json:"attempt_no"`
-	RetryOf          *uuid.UUID `json:"retry_of,omitempty"`
-	TargetURL        string     `json:"target_url"`
+	ID               uuid.UUID    `json:"id"`
+	EventID          uuid.UUID    `json:"event_id"`
+	InboxID          uuid.UUID    `json:"inbox_id"`
+	AttemptNo        int          `json:"attempt_no"`
+	RetryOf          *uuid.UUID   `json:"retry_of,omitempty"`
+	TargetURL        string       `json:"target_url"`
 	EditedInput      *EditedInput `json:"edited_input,omitempty"`
-	SignApplied      bool       `json:"sign_applied"`
-	StartedAt        time.Time  `json:"started_at"`
-	FinishedAt       *time.Time `json:"finished_at,omitempty"`
-	DurationMS       int        `json:"duration_ms"`
-	StatusCode       *int       `json:"status_code,omitempty"`
-	ResponsePreview  string     `json:"response_preview,omitempty"`
-	PreviewTruncated bool       `json:"preview_truncated"`
-	Error            string     `json:"error,omitempty"`
-	Outcome          string     `json:"outcome"`
-	CreatedAt        time.Time  `json:"created_at"`
+	SignApplied      bool         `json:"sign_applied"`
+	StartedAt        time.Time    `json:"started_at"`
+	FinishedAt       *time.Time   `json:"finished_at,omitempty"`
+	DurationMS       int          `json:"duration_ms"`
+	StatusCode       *int         `json:"status_code,omitempty"`
+	ResponsePreview  string       `json:"response_preview,omitempty"`
+	PreviewTruncated bool         `json:"preview_truncated"`
+	Error            string       `json:"error,omitempty"`
+	Outcome          string       `json:"outcome"`
+	CreatedAt        time.Time    `json:"created_at"`
 }
 
 // EditedInput captures what the user changed when replaying an edited request. It is
@@ -137,8 +137,8 @@ type InboxFilter struct {
 	// cleaner has to walk every inbox) and must never be set from a request handler:
 	// the default is "filter by owner", so forgetting it fails closed.
 	AllOwners bool
-	Limit    int
-	Offset   int
+	Limit     int
+	Offset    int
 }
 
 // EventFilter is the query for the event list. All conditions are combined with AND.
@@ -161,28 +161,28 @@ type EventFilter struct {
 // the full body is fetched only when the user opens one event.
 type EventListItem struct {
 	Event
-	Preview       string     `json:"preview"`
-	ReplayCount   int        `json:"replay_count"`
-	LastOutcome   string     `json:"last_outcome,omitempty"`
-	LastStatus    *int       `json:"last_status_code,omitempty"`
+	Preview        string     `json:"preview"`
+	ReplayCount    int        `json:"replay_count"`
+	LastOutcome    string     `json:"last_outcome,omitempty"`
+	LastStatus     *int       `json:"last_status_code,omitempty"`
 	LastReplayedAt *time.Time `json:"last_replayed_at,omitempty"`
 }
 
 // InboxPatch is a partial update. Nil/zero fields are left untouched; `SetX` flags make
 // the intent explicit so that "disable" is distinguishable from "not mentioned".
 type InboxPatch struct {
-	Name       *string
-	Enabled    *bool
-	SigningSecret    *[]byte
-	SignatureHeader  *string
-	SignatureScheme  *string
-	RequireSignature *bool
+	Name               *string
+	Enabled            *bool
+	SigningSecret      *[]byte
+	SignatureHeader    *string
+	SignatureScheme    *string
+	RequireSignature   *bool
 	RetentionMaxEvents *int
 	RetentionMaxDays   *int
 	// Custom response returned to the webhook sender.
-	ResponseCode     *int
-	ResponseDelayMS  *int
-	ResponseBody     *[]byte
+	ResponseCode    *int
+	ResponseDelayMS *int
+	ResponseBody    *[]byte
 }
 
 // Store is the full persistence contract.

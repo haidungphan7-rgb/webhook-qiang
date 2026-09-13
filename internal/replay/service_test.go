@@ -221,6 +221,7 @@ func TestRequest_Headers(t *testing.T) {
 
 	svc, _, inbox, event, target := testFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		received = r.Header.Clone()
+
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -267,6 +268,7 @@ func TestRequest_SignUsesRawBytes(t *testing.T) {
 
 	svc, _, inbox, event, target := testFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		signature = r.Header.Get("X-Signature")
+
 		w.WriteHeader(http.StatusOK)
 	}))
 

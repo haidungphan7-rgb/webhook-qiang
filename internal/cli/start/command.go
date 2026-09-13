@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -29,8 +30,8 @@ import (
 	"github.com/yuandzhang/webhook-zq/internal/migrate"
 	"github.com/yuandzhang/webhook-zq/internal/notify"
 	"github.com/yuandzhang/webhook-zq/internal/pubsub"
-	"github.com/yuandzhang/webhook-zq/internal/retention"
 	"github.com/yuandzhang/webhook-zq/internal/replay"
+	"github.com/yuandzhang/webhook-zq/internal/retention"
 	"github.com/yuandzhang/webhook-zq/internal/storage/postgres"
 	"github.com/yuandzhang/webhook-zq/internal/version"
 	"github.com/yuandzhang/webhook-zq/web"
@@ -49,24 +50,24 @@ type command struct {
 
 		databaseURL string
 
-		maxRequestBodySize  uint32
-		replayTimeout       time.Duration
-		replayMaxPreview    int
-		replayMaxRedirects  int
-		replayMaxRetries    int
-		replayBackoff       time.Duration
-		replayRateLimit     int
-		replayAllowHosts    []string
-		retentionMaxEvents  int
-		retentionMaxDays    int
-		retentionInterval   time.Duration
-		authToken           string
-		encryptKey          string
-		publicURLRoot       string
-		useLiveFrontend     bool
-		trustProxyHeader    bool
-		replayAllowPrivate  bool
-		authKeys            []string
+		maxRequestBodySize uint32
+		replayTimeout      time.Duration
+		replayMaxPreview   int
+		replayMaxRedirects int
+		replayMaxRetries   int
+		replayBackoff      time.Duration
+		replayRateLimit    int
+		replayAllowHosts   []string
+		retentionMaxEvents int
+		retentionMaxDays   int
+		retentionInterval  time.Duration
+		authToken          string
+		encryptKey         string
+		publicURLRoot      string
+		useLiveFrontend    bool
+		trustProxyHeader   bool
+		replayAllowPrivate bool
+		authKeys           []string
 	}
 }
 
@@ -152,13 +153,23 @@ func NewCommand(log *zap.Logger, defaultPort uint16) *cli.Command { //nolint:fun
 			boolFlag("trust-proxy-headers", "trust X-Forwarded-For & friends for the client IP", "TRUST_PROXY_HEADERS"),
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
+			if c.Uint("port") > math.MaxUint16 {
+				return fmt.Errorf("--port %d is out of range (0-65535)", c.Uint("port"))
+			}
+
+			if c.Uint("max-request-body-size") > math.MaxUint32 {
+				return fmt.Errorf("--max-request-body-size %d is out of range (0-4294967295)", c.Uint("max-request-body-size"))
+			}
+
 			cmd.options.addr = c.String("addr")
+			// #nosec G115 -- bounded by the explicit check above.
 			cmd.options.port = uint16(c.Uint("port"))
 			cmd.options.timeouts.httpRead = c.Duration("read-timeout")
 			cmd.options.timeouts.httpWrite = c.Duration("write-timeout")
 			cmd.options.timeouts.httpIdle = c.Duration("idle-timeout")
 			cmd.options.timeouts.shutdown = c.Duration("shutdown-timeout")
 			cmd.options.databaseURL = c.String("database-url")
+			// #nosec G115 -- bounded by the explicit check above.
 			cmd.options.maxRequestBodySize = uint32(c.Uint("max-request-body-size"))
 			cmd.options.replayTimeout = c.Duration("replay-timeout")
 			cmd.options.replayMaxPreview = c.Int("replay-max-preview")
@@ -281,13 +292,13 @@ func (cmd *command) Run(parentCtx context.Context, log *zap.Logger) error { //no
 	bus := pubsub.NewInMemory[notify.Message]()
 
 	replaySvc := replay.New(log.Named("replay"), store, replay.Policy{
-		Timeout:       settings.ReplayTimeout,
-		MaxPreview:    settings.ReplayMaxPreview,
-		MaxRedirects:  settings.ReplayMaxRedirects,
-		MaxRetries:    settings.ReplayMaxRetries,
-		Backoff:       settings.ReplayBackoff,
-		AllowHosts:    settings.ReplayAllowHosts,
-		AllowPrivate:  settings.ReplayAllowPrivate,
+		Timeout:      settings.ReplayTimeout,
+		MaxPreview:   settings.ReplayMaxPreview,
+		MaxRedirects: settings.ReplayMaxRedirects,
+		MaxRetries:   settings.ReplayMaxRetries,
+		Backoff:      settings.ReplayBackoff,
+		AllowHosts:   settings.ReplayAllowHosts,
+		AllowPrivate: settings.ReplayAllowPrivate,
 	})
 
 	api := httpapi.New(httpapi.Deps{
@@ -361,8 +372,8 @@ func (cmd *command) Run(parentCtx context.Context, log *zap.Logger) error { //no
 	go func() {
 		defer func() { _ = ln.Close() }()
 
-		if err := server.StartHTTP(ctx, ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("http server stopped with an error", zap.Error(err))
+		if serveErr := server.StartHTTP(ctx, ln); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			log.Error("http server stopped with an error", zap.Error(serveErr))
 		}
 	}()
 
@@ -377,23 +388,23 @@ func (cmd *command) Run(parentCtx context.Context, log *zap.Logger) error { //no
 
 func (cmd *command) buildSettings() (*config.AppSettings, error) {
 	s := config.AppSettings{
-		PublicURLRoot:       strings.TrimRight(cmd.options.publicURLRoot, "/"),
-		MaxRequestBodySize:  cmd.options.maxRequestBodySize,
-		ReplayTimeout:       cmd.options.replayTimeout,
-		ReplayMaxPreview:    cmd.options.replayMaxPreview,
-		ReplayMaxRedirects:  cmd.options.replayMaxRedirects,
-		ReplayMaxRetries:    cmd.options.replayMaxRetries,
-		ReplayBackoff:       cmd.options.replayBackoff,
-		ReplayAllowHosts:    cmd.options.replayAllowHosts,
-		ReplayAllowPrivate:  cmd.options.replayAllowPrivate,
-		ReplayRateLimit:     cmd.options.replayRateLimit,
-		RetentionMaxEvents:  cmd.options.retentionMaxEvents,
-		RetentionMaxDays:    cmd.options.retentionMaxDays,
-		RetentionInterval:   cmd.options.retentionInterval,
-		AuthToken:           cmd.options.authToken,
-		EncryptKey:          cmd.options.encryptKey,
-		TrustProxy:          cmd.options.trustProxyHeader,
-		MaxPageSize:         config.DefaultMaxPageSize,
+		PublicURLRoot:      strings.TrimRight(cmd.options.publicURLRoot, "/"),
+		MaxRequestBodySize: cmd.options.maxRequestBodySize,
+		ReplayTimeout:      cmd.options.replayTimeout,
+		ReplayMaxPreview:   cmd.options.replayMaxPreview,
+		ReplayMaxRedirects: cmd.options.replayMaxRedirects,
+		ReplayMaxRetries:   cmd.options.replayMaxRetries,
+		ReplayBackoff:      cmd.options.replayBackoff,
+		ReplayAllowHosts:   cmd.options.replayAllowHosts,
+		ReplayAllowPrivate: cmd.options.replayAllowPrivate,
+		ReplayRateLimit:    cmd.options.replayRateLimit,
+		RetentionMaxEvents: cmd.options.retentionMaxEvents,
+		RetentionMaxDays:   cmd.options.retentionMaxDays,
+		RetentionInterval:  cmd.options.retentionInterval,
+		AuthToken:          cmd.options.authToken,
+		EncryptKey:         cmd.options.encryptKey,
+		TrustProxy:         cmd.options.trustProxyHeader,
+		MaxPageSize:        config.DefaultMaxPageSize,
 	}
 
 	if s.MaxRequestBodySize == 0 {

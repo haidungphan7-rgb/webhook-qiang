@@ -44,13 +44,13 @@ func fixture(t *testing.T, settings func(*config.AppSettings), opts ...fixtureOp
 	ctx := context.Background()
 
 	inbox := storage.Inbox{
-		ID:              uuid.New(),
-		OwnerKey:        defaultOwnerKey,
-		Name:            "demo",
-		Token:           "abc",
-		Enabled:         true,
+		ID:                 uuid.New(),
+		OwnerKey:           defaultOwnerKey,
+		Name:               "demo",
+		Token:              "abc",
+		Enabled:            true,
 		RetentionMaxEvents: 500,
-		ResponseCode:    200,
+		ResponseCode:       200,
 	}
 
 	if err := store.CreateInbox(ctx, &inbox); err != nil {
@@ -154,6 +154,7 @@ func TestCreateInbox_Validation(t *testing.T) {
 	}
 
 	var in map[string]any
+
 	_ = json.Unmarshal(rec.Body.Bytes(), &in)
 
 	if _, ok := in["token"]; !ok {

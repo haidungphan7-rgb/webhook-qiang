@@ -22,13 +22,13 @@ import (
 
 	"github.com/yuandzhang/webhook-zq/internal/config"
 	"github.com/yuandzhang/webhook-zq/internal/crypto"
-	"github.com/yuandzhang/webhook-zq/internal/version"
 	appHttpMiddleware "github.com/yuandzhang/webhook-zq/internal/http/middleware/logreq"
 	"github.com/yuandzhang/webhook-zq/internal/http/middleware/secure"
 	"github.com/yuandzhang/webhook-zq/internal/http/middleware/webhook"
 	"github.com/yuandzhang/webhook-zq/internal/notify"
 	"github.com/yuandzhang/webhook-zq/internal/pubsub"
 	"github.com/yuandzhang/webhook-zq/internal/storage"
+	"github.com/yuandzhang/webhook-zq/internal/version"
 )
 
 // Server wraps http.Server with a graceful shutdown timeout.
@@ -103,6 +103,7 @@ func (s *Server) Register(appCtx context.Context, d Deps, spa http.Handler) *Ser
 	mux.Handle("/", spa)
 
 	var handler http.Handler = mux
+
 	handler = webhook.New(appCtx, webhook.Deps{
 		Log:        d.Log.Named("webhook"),
 		Store:      d.Store,

@@ -24,23 +24,23 @@ import (
 // connection, not the new one. The sensitive set (Authorization, Cookie, X-API-Key, ...)
 // is handled by capture.IsSensitive and is stripped for confidentiality.
 var neverForward = map[string]bool{
-	"host":                    true,
-	"content-length":          true,
-	"connection":              true,
-	"keep-alive":              true,
-	"proxy-authenticate":      true,
-	"proxy-authorization":     true,
-	"te":                      true,
-	"trailer":                 true,
-	"transfer-encoding":       true,
-	"upgrade":                 true,
-	"accept-encoding":         true, // we control the transport encoding
-	"x-forwarded-for":         true,
-	"x-forwarded-host":        true,
-	"x-forwarded-proto":       true,
-	"x-real-ip":               true,
-	"cf-connecting-ip":        true,
-	"x-wh-event-id":           true,
+	"host":                true,
+	"content-length":      true,
+	"connection":          true,
+	"keep-alive":          true,
+	"proxy-authenticate":  true,
+	"proxy-authorization": true,
+	"te":                  true,
+	"trailer":             true,
+	"transfer-encoding":   true,
+	"upgrade":             true,
+	"accept-encoding":     true, // we control the transport encoding
+	"x-forwarded-for":     true,
+	"x-forwarded-host":    true,
+	"x-forwarded-proto":   true,
+	"x-real-ip":           true,
+	"cf-connecting-ip":    true,
+	"x-wh-event-id":       true,
 }
 
 // Service executes replays and records every attempt.
@@ -132,16 +132,16 @@ func (s *Service) blockedAttempt(req Request, err error) storage.ReplayAttempt {
 	now := time.Now().UTC()
 
 	return storage.ReplayAttempt{
-		ID:        uuid.New(),
-		EventID:   req.Event.ID,
-		InboxID:   req.Inbox.ID,
-		AttemptNo: 1,
-		TargetURL: req.Target,
-		StartedAt: now,
+		ID:         uuid.New(),
+		EventID:    req.Event.ID,
+		InboxID:    req.Inbox.ID,
+		AttemptNo:  1,
+		TargetURL:  req.Target,
+		StartedAt:  now,
 		FinishedAt: func() *time.Time { return &now }(),
-		Outcome:   storage.OutcomeBlocked,
-		Error:     err.Error(),
-		CreatedAt: now,
+		Outcome:    storage.OutcomeBlocked,
+		Error:      err.Error(),
+		CreatedAt:  now,
 	}
 }
 

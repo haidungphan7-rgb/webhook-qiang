@@ -291,6 +291,8 @@ func respond(d Deps, w http.ResponseWriter, r *http.Request, inbox *storage.Inbo
 
 	if len(inbox.ResponseBody) > 0 {
 		w.WriteHeader(status)
+		// #nosec G705 -- the body is the inbox owner's configured mock response,
+		// written back byte for byte; it is not interpolated into a template.
 		_, _ = w.Write(inbox.ResponseBody)
 
 		return
@@ -299,7 +301,11 @@ func respond(d Deps, w http.ResponseWriter, r *http.Request, inbox *storage.Inbo
 	// Default: the task requires the event id in the response.
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"id": ev.ID.String(), "ok": true})
+	//nolint:errchkjson // the client may be gone already; a failed write has nowhere to go.
+	_ = json.NewEncoder(w).Encode(struct {
+		ID string `json:"id"`
+		OK bool   `json:"ok"`
+	}{ev.ID.String(), true})
 }
 
 // The "+1" in the MaxBytesReader budget is the whole trick: a body of exactly 1 MiB must
@@ -321,9 +327,16 @@ func sleep(ctx context.Context, d time.Duration) {
 func writeError(w http.ResponseWriter, status int, code, msg string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"error": map[string]any{"code": code, "message": msg},
-	})
+	//nolint:errchkjson // the client may be gone already; a failed write has nowhere to go.
+	_ = json.NewEncoder(w).Encode(struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}{struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}{code, msg}})
 }
 
 // trustedHeaders are consulted for the client IP, lowest priority first. They are only

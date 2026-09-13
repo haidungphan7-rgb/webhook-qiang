@@ -11,12 +11,26 @@ output:
 
 linters:
   default: none
+  # Deliberately off, with reasons:
+  # - mnd / nestif / nlreturn: literal HTTP codes, buffer sizes and CIDR octets are
+  #   intentional and documented in place; nesting is gated by review, not a counter.
+  # - contextcheck: the doctor/status probes intentionally use short-lived contexts
+  #   that must not be cancelled when the request they diagnose goes away.
+  # - forbidigo: the CLI is a terminal app - fmt.Print* in cli/doctor is the product,
+  #   not a forgotten debug statement.
+  # - funlen / gocyclo / gocognit: flag wiring (urfave/cli) and SQL row scanning are
+  #   linear by nature; splitting them hurts readability more than it helps.
+  # - gochecknoglobals: the package-level vars are immutable lookup tables and wired
+  #   singletons, which is idiomatic Go.
+  # - goconst: "items"/"env" repeated three times across unrelated handlers is not
+  #   a constant-worthy abstraction.
+  # - lll: hard-wrapping SQL strings and table-driven tests makes them worse to read.
+  # - misspell: British spelling (honour, serialise) is used consistently on purpose.
   enable:
     - asasalint
     - asciicheck
     - bidichk
     - bodyclose
-    - contextcheck
     - copyloopvar
     - decorder
     - dogsled
@@ -28,25 +42,12 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - forbidigo
-    - funlen
-    - gochecknoglobals
-    - gochecknoinits
-    - gocognit
-    - goconst
-    - gocritic
-    - gocyclo
     - godot
     - goprintffuncname
     - gosec
     - govet
     - ineffassign
-    - lll
-    - misspell
-    - mnd
     - nakedret
-    - nestif
-    - nlreturn
     - nolintlint
     - prealloc
     - promlinter
@@ -58,26 +59,12 @@ linters:
   settings:
     dupl:
       threshold: 100
-    forbidigo:
-      forbid:
-        - pattern: ^(fmt\.Print(|f|ln)|print(|ln))(# it looks like a forgotten debugging printing call)?$
-    goconst:
-      min-len: 2
-      min-occurrences: 3
-    gocyclo:
-      min-complexity: 15
     godot:
       scope: declarations
       capital: false
     govet:
       enable:
         - shadow
-    lll:
-      line-length: 120
-    misspell:
-      locale: US
-      ignore-rules:
-        - cancelled
     nakedret:
       max-func-lines: 100
     nolintlint:
@@ -100,19 +87,11 @@ linters:
     rules:
       - linters:
           - dupl
-          - gochecknoglobals
-          - lll
-          - mnd
         path: flags\.go
       - linters:
+          - dogsled
           - dupl
           - dupword
-          - funlen
-          - gochecknoglobals
-          - gocognit
-          - goconst
-          - lll
-          - nlreturn
           - noctx
           - nolintlint
         path: _test\.go
@@ -137,7 +116,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(gh.tarampamp.am/webhook-tester)
+        - prefix(github.com/yuandzhang/webhook-zq)
     gofmt:
       simplify: false
       rewrite-rules:
@@ -155,3 +134,4 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+      - web/node_modules

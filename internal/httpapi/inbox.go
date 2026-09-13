@@ -14,19 +14,19 @@ import (
 
 // InboxDTO is the API representation of an inbox.
 type InboxDTO struct {
-	ID           string     `json:"id"`
-	Name         string     `json:"name"`
-	Token        string     `json:"token"`
-	Enabled      bool       `json:"enabled"`
-	ReceiveURL   string     `json:"receive_url"`
-	EventCount   int        `json:"event_count"`
-	LastEventAt  *time.Time `json:"last_event_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	ResponseCode int        `json:"response_code"`
-	ResponseDelayMS int     `json:"response_delay_ms"`
-	ResponseBody string     `json:"response_body_base64,omitempty"`
-	ResponseHeaders []KV    `json:"response_headers"`
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Token           string     `json:"token"`
+	Enabled         bool       `json:"enabled"`
+	ReceiveURL      string     `json:"receive_url"`
+	EventCount      int        `json:"event_count"`
+	LastEventAt     *time.Time `json:"last_event_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+	ResponseCode    int        `json:"response_code"`
+	ResponseDelayMS int        `json:"response_delay_ms"`
+	ResponseBody    string     `json:"response_body_base64,omitempty"`
+	ResponseHeaders []KV       `json:"response_headers"`
 
 	SignatureHeader  string `json:"signature_header"`
 	SignatureScheme  string `json:"signature_scheme"`
@@ -45,23 +45,23 @@ type KV struct {
 
 func (a API) inboxDTO(r *http.Request, in storage.Inbox) InboxDTO {
 	dto := InboxDTO{
-		ID:                in.ID.String(),
-		Name:              in.Name,
-		Token:             in.Token,
-		Enabled:           in.Enabled,
-		ReceiveURL:        a.receiveURL(r, in.Token),
-		EventCount:        in.EventCount,
-		LastEventAt:       in.LastEventAt,
-		CreatedAt:         in.CreatedAt,
-		UpdatedAt:         in.UpdatedAt,
-		ResponseCode:      in.ResponseCode,
-		ResponseDelayMS:   in.ResponseDelayMS,
-		ResponseBody:      base64.StdEncoding.EncodeToString(in.ResponseBody),
-		ResponseHeaders:   headersKV(in.ResponseHeaders),
-		SignatureHeader:   in.SignatureHeader,
-		SignatureScheme:   in.SignatureScheme,
-		RequireSignature:  in.RequireSignature,
-		HasSigningSecret:  len(in.SigningSecret) > 0,
+		ID:                 in.ID.String(),
+		Name:               in.Name,
+		Token:              in.Token,
+		Enabled:            in.Enabled,
+		ReceiveURL:         a.receiveURL(r, in.Token),
+		EventCount:         in.EventCount,
+		LastEventAt:        in.LastEventAt,
+		CreatedAt:          in.CreatedAt,
+		UpdatedAt:          in.UpdatedAt,
+		ResponseCode:       in.ResponseCode,
+		ResponseDelayMS:    in.ResponseDelayMS,
+		ResponseBody:       base64.StdEncoding.EncodeToString(in.ResponseBody),
+		ResponseHeaders:    headersKV(in.ResponseHeaders),
+		SignatureHeader:    in.SignatureHeader,
+		SignatureScheme:    in.SignatureScheme,
+		RequireSignature:   in.RequireSignature,
+		HasSigningSecret:   len(in.SigningSecret) > 0,
 		RetentionMaxEvents: in.RetentionMaxEvents,
 		RetentionMaxDays:   in.RetentionMaxDays,
 	}
@@ -92,7 +92,7 @@ func (a API) receiveURL(r *http.Request, token string) string {
 	return strings.TrimRight(base, "/") + "/hooks/" + token
 }
 
-// GET /v1/inboxes
+// GET /v1/inboxes.
 func (a API) listInboxes(w http.ResponseWriter, r *http.Request) {
 	limit, offset := a.paging(r, 20)
 
@@ -128,7 +128,7 @@ type createInboxRequest struct {
 	Name string `json:"name"`
 }
 
-// POST /v1/inboxes
+// POST /v1/inboxes.
 func (a API) createInbox(w http.ResponseWriter, r *http.Request) {
 	var req createInboxRequest
 	if err := decodeJSON(r, &req); err != nil {
@@ -201,7 +201,7 @@ func (a API) createInbox(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, a.inboxDTO(r, in))
 }
 
-// GET /v1/inboxes/{id}
+// GET /v1/inboxes/{id}.
 func (a API) getInbox(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(r.PathValue("id"))
 	if err != nil {
@@ -219,20 +219,20 @@ func (a API) getInbox(w http.ResponseWriter, r *http.Request) {
 }
 
 type patchInboxRequest struct {
-	Name              *string `json:"name"`
-	Enabled           *bool   `json:"enabled"`
-	ResponseCode      *int    `json:"response_code"`
-	ResponseDelayMS   *int    `json:"response_delay_ms"`
-	ResponseBody      *string `json:"response_body_base64"`
-	SignatureHeader   *string `json:"signature_header"`
-	SignatureScheme   *string `json:"signature_scheme"`
-	RequireSignature  *bool   `json:"require_signature"`
-	SigningSecret     *string `json:"signing_secret"`
-	RetentionMaxEvents *int   `json:"retention_max_events"`
-	RetentionMaxDays   *int   `json:"retention_max_days"`
+	Name               *string `json:"name"`
+	Enabled            *bool   `json:"enabled"`
+	ResponseCode       *int    `json:"response_code"`
+	ResponseDelayMS    *int    `json:"response_delay_ms"`
+	ResponseBody       *string `json:"response_body_base64"`
+	SignatureHeader    *string `json:"signature_header"`
+	SignatureScheme    *string `json:"signature_scheme"`
+	RequireSignature   *bool   `json:"require_signature"`
+	SigningSecret      *string `json:"signing_secret"`
+	RetentionMaxEvents *int    `json:"retention_max_events"`
+	RetentionMaxDays   *int    `json:"retention_max_days"`
 }
 
-// PATCH /v1/inboxes/{id}
+// PATCH /v1/inboxes/{id}.
 func (a API) patchInbox(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(r.PathValue("id"))
 	if err != nil {
@@ -337,7 +337,7 @@ func (a API) patchInbox(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, a.inboxDTO(r, *in))
 }
 
-// DELETE /v1/inboxes/{id}
+// DELETE /v1/inboxes/{id}.
 func (a API) deleteInbox(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(r.PathValue("id"))
 	if err != nil {
@@ -359,7 +359,7 @@ func (a API) deleteInbox(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// POST /v1/inboxes/{id}/token/rotate
+// POST /v1/inboxes/{id}/token/rotate.
 func (a API) rotateToken(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(r.PathValue("id"))
 	if err != nil {

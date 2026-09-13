@@ -44,12 +44,12 @@ var SensitiveHeaders = map[string]bool{
 	"x-csrf-token":        true,
 	// Same secrets under other common spellings: a provider that sends "Api-Key" instead
 	// of "X-Api-Key" must not end up with the value in clear text.
-	"api-key":                 true,
-	"authentication":          true,
-	"x-access-token":          true,
-	"x-session-token":         true,
-	"x-refresh-token":         true,
-	"x-amz-security-token":    true,
+	"api-key":                        true,
+	"authentication":                 true,
+	"x-access-token":                 true,
+	"x-session-token":                true,
+	"x-refresh-token":                true,
+	"x-amz-security-token":           true,
 	"x-goog-iam-authorization-token": true,
 }
 

@@ -44,7 +44,7 @@ func NewCommand(log *zap.Logger) *cli.Command {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "database-url",
-				Usage:       "PostgreSQL DSN (postgres://user:pwd@host:5432/db)",
+				Usage:       "PostgreSQL DSN (postgres://USER@HOST:5432/DB)",
 				Sources:     cli.EnvVars("DATABASE_URL"),
 				OnlyOnce:    true,
 				Config:      cli.StringConfig{TrimSpace: true},
@@ -71,6 +71,7 @@ func run(ctx context.Context, log *zap.Logger, dsn string, port uint) error {
 	ok := func(title string) { fmt.Printf("  ok    %s\n", title) }
 	bad := func(p problem) {
 		fmt.Printf("  FAIL  %s\n", p.title)
+
 		for _, line := range p.fix {
 			fmt.Printf("        %s\n", line)
 		}
@@ -204,6 +205,7 @@ func run(ctx context.Context, log *zap.Logger, dsn string, port uint) error {
 		})
 	} else {
 		_ = l.Close()
+
 		ok(fmt.Sprintf("端口 %d 可用", port))
 	}
 

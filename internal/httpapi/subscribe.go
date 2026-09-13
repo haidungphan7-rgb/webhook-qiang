@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
-
 )
 
 // upgrader is intentionally permissive about the origin: this is a developer tool that is
@@ -122,7 +121,7 @@ func (a API) stream(ctx context.Context, cancel context.CancelFunc, conn *websoc
 		defer cancel()
 
 		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
+			if _, _, readErr := conn.ReadMessage(); readErr != nil {
 				return
 			}
 		}

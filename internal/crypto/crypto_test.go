@@ -3,6 +3,7 @@ package crypto
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ func testCipher(t *testing.T) *Cipher {
 func TestNewCipher_KeyValidation(t *testing.T) {
 	t.Parallel()
 
-	if _, err := NewCipher(nil); err != ErrNoMasterKey {
+	if _, err := NewCipher(nil); !errors.Is(err, ErrNoMasterKey) {
 		t.Fatalf("empty key must return ErrNoMasterKey, got %v", err)
 	}
 
@@ -126,7 +127,7 @@ func TestCipher_MalformedBlob(t *testing.T) {
 
 	c := testCipher(t)
 
-	if _, err := c.Decrypt(uuid.New(), []byte{0x01, 0x02}); err != ErrMalformedBlob {
+	if _, err := c.Decrypt(uuid.New(), []byte{0x01, 0x02}); !errors.Is(err, ErrMalformedBlob) {
 		t.Fatalf("expected ErrMalformedBlob, got %v", err)
 	}
 }

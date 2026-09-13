@@ -210,8 +210,6 @@ func TestExport_CurlHeredocDelimiterAvoidsBody(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -223,7 +221,6 @@ func TestExport_CurlHeredocDelimiterAvoidsBody(t *testing.T) {
 			// The cURL export is plain text (so it can be pasted straight into a
 			// terminal), not a JSON envelope.
 			command := rec.Body.String()
-
 
 			if !strings.Contains(command, "<<'"+tc.want+"'") {
 				t.Fatalf("expected delimiter %q in:\n%s", tc.want, command)
@@ -260,8 +257,6 @@ func TestSameOrigin(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

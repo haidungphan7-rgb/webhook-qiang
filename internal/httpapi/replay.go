@@ -193,7 +193,7 @@ func dtoList(in []storage.ReplayAttempt) []ReplayAttemptDTO {
 	return out
 }
 
-// GET /v1/events/{id}/replays
+// GET /v1/events/{id}/replays.
 func (a API) listReplays(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(r.PathValue("id"))
 	if err != nil {
@@ -252,10 +252,12 @@ func (a API) exportEvent(w http.ResponseWriter, r *http.Request) {
 		sb.WriteString(" '")
 		sb.WriteString(a.deps.Settings.PublicURLRoot)
 		sb.WriteString(ev.Path)
+
 		if ev.Query != "" {
 			sb.WriteString("?")
 			sb.WriteString(ev.Query)
 		}
+
 		sb.WriteString("'")
 
 		for _, h := range ev.Headers {

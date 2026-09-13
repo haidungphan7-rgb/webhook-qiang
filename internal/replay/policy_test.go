@@ -18,8 +18,7 @@ import (
 // fakeDNS answers fixed names so the suite never depends on external DNS.
 func fakeDNS(mapping map[string][]string) func(context.Context, string) ([]net.IPAddr, error) {
 	return func(_ context.Context, host string) ([]net.IPAddr, error) {
-		switch host {
-		case "dns-error.test":
+		if host == "dns-error.test" {
 			return nil, errors.New("no such host")
 		}
 
@@ -152,29 +151,29 @@ func TestBlockedIP_Table(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]bool{
-		"0.0.0.0":         true,
-		"0.1.2.3":         true,
-		"127.0.0.1":       true,
-		"10.0.0.1":        true,
-		"172.16.0.1":      true,
-		"192.168.0.1":     true,
-		"169.254.169.254": true,
-		"100.64.0.1":      true,
-		"198.18.0.1":      true,
-		"224.0.0.1":       true,
-		"::1":             true,
-		"::":              true,
-		"fc00::1":         true,
-		"fe80::1":         true,
-		"::ffff:127.0.0.1": true,
-		"2002:7f00:1::":   true,
+		"0.0.0.0":            true,
+		"0.1.2.3":            true,
+		"127.0.0.1":          true,
+		"10.0.0.1":           true,
+		"172.16.0.1":         true,
+		"192.168.0.1":        true,
+		"169.254.169.254":    true,
+		"100.64.0.1":         true,
+		"198.18.0.1":         true,
+		"224.0.0.1":          true,
+		"::1":                true,
+		"::":                 true,
+		"fc00::1":            true,
+		"fe80::1":            true,
+		"::ffff:127.0.0.1":   true,
+		"2002:7f00:1::":      true,
 		"64:ff9b::a9fe:a9fe": true,
 		// must stay reachable
-		"8.8.8.8":     false,
-		"1.1.1.1":     false,
-		"172.32.0.1":  false,
-		"192.0.2.1":   false,
-		"203.0.113.5": false,
+		"8.8.8.8":         false,
+		"1.1.1.1":         false,
+		"172.32.0.1":      false,
+		"192.0.2.1":       false,
+		"203.0.113.5":     false,
 		"2606:4700::1111": false,
 	}
 
@@ -235,6 +234,7 @@ func TestClient_Hardening(t *testing.T) {
 	t.Parallel()
 
 	client := Policy{Timeout: 3 * time.Second}.Client()
+
 	tr, ok := client.Transport.(*http.Transport)
 	if !ok {
 		t.Fatalf("unexpected transport type %T", client.Transport)

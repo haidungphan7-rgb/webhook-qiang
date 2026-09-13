@@ -339,7 +339,6 @@ func (s *Store) ListEvents(_ context.Context, f storage.EventFilter) ([]storage.
 			continue
 		}
 
-
 		if f.Method != "" && !strings.EqualFold(ev.Method, f.Method) {
 			continue
 		}
@@ -383,7 +382,7 @@ func (s *Store) ListEvents(_ context.Context, f storage.EventFilter) ([]storage.
 		end = total
 	}
 
-	var out []storage.EventListItem
+	out := make([]storage.EventListItem, 0, end-offset)
 
 	for _, ev := range matched[offset:end] {
 		item := storage.EventListItem{Event: ev}

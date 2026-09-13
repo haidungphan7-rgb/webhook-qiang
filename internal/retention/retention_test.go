@@ -96,8 +96,8 @@ func TestRunOnce_UsesPerInboxLimits(t *testing.T) {
 		}
 	}
 
-	add(small.ID, 5, 0)          // keeps 2
-	add(big.ID, 3, 0)            // keeps 3
+	add(small.ID, 5, 0)             // keeps 2
+	add(big.ID, 3, 0)               // keeps 3
 	add(old.ID, 2, 10*24*time.Hour) // all older than 7 days -> removed
 
 	deleted := RunOnce(context.Background(), zap.NewNop(), store)

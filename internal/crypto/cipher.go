@@ -21,11 +21,11 @@ import (
 	"io"
 )
 
-// blobLayout = version(1) || nonce(12) || ciphertext+tag
+// blobLayout = version(1) || nonce(12) || ciphertext+tag.
 const (
 	blobVersion byte = 0x01
-	nonceSize        = 12
-	keySize          = 32 // AES-256
+	nonceSize   int  = 12
+	keySize     int  = 32 // AES-256
 )
 
 var (
@@ -67,8 +67,8 @@ func (c *Cipher) derive(inboxID [16]byte) []byte {
 	prkSum := prk.Sum(nil)
 
 	var (
-		t    = []byte{}
-		prev = []byte{}
+		t    = make([]byte, 0, blocks*sha256.Size)
+		prev []byte
 	)
 
 	for i := 0; i < blocks; i++ {

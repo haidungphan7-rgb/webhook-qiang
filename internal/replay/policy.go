@@ -7,6 +7,7 @@
 //  1. ValidateTarget - rejects non http(s) schemes, credentials in the URL and resolves
 //     the host: if ANY resolved address is loopback/private/link-local/multicast/
 //     unspecified or otherwise reserved, the request is refused before it is sent.
+//
 //  2. transport.DialContext - re-checks the address of every TCP connection. This catches
 //     DNS rebinding (a name that resolves public during validation and private at
 //     connect time) and, because it runs per connection, it also covers redirect hops.
@@ -17,6 +18,7 @@
 //     host name as "unverifiable", which broke replays to every public domain. The
 //     wrapper therefore splits the host, resolves it itself (with a short timeout) and
 //     then applies the same blockedIP() rules to every answer.
+//
 //  3. CheckRedirect - redirects are DISABLED by default; when enabled, each hop is
 //     validated again with the exact same rules.
 //
@@ -292,7 +294,6 @@ func (p Policy) checkDialAddress(ctx context.Context, address string) error {
 func (p Policy) Client() *http.Client {
 	dialer := &net.Dialer{
 		Timeout: p.Timeout,
-
 	}
 
 	transport := &http.Transport{

@@ -26,10 +26,10 @@ const SchemaVersion = 1
 type File struct {
 	Schema int `json:"schema"`
 
-	Addr             string `json:"addr,omitempty"`
-	Port             uint16 `json:"port,omitempty"`
-	DatabaseURL      string `json:"database_url,omitempty"`
-	PublicURLRoot    string `json:"public_url_root,omitempty"`
+	Addr               string `json:"addr,omitempty"`
+	Port               uint16 `json:"port,omitempty"`
+	DatabaseURL        string `json:"database_url,omitempty"`
+	PublicURLRoot      string `json:"public_url_root,omitempty"`
 	MaxRequestBodySize uint32 `json:"max_request_body_size,omitempty"`
 
 	ReplayTimeout      string   `json:"replay_timeout,omitempty"`
@@ -103,9 +103,10 @@ func defaultPath(goos string, getenv func(string) string) (string, error) {
 // %LOCALAPPDATA% is preferred when it is set.
 //
 // Expected results:
-//   linux   $XDG_CONFIG_HOME  or  ~/.config
-//   darwin  ~/Library/Application Support
-//   windows %LOCALAPPDATA%    or  %AppData%
+//
+//	linux   $XDG_CONFIG_HOME  or  ~/.config
+//	darwin  ~/Library/Application Support
+//	windows %LOCALAPPDATA%    or  %AppData%
 func userConfigDir(goos string, getenv func(string) string) (string, error) {
 	switch goos {
 	case "windows":
@@ -262,6 +263,8 @@ func Save(path string, f *File) error {
 	}
 
 	if old, err := os.ReadFile(path); err == nil {
+		// #nosec G703 -- the path is the caller-supplied config path; the .bak
+		// sibling next to it is exactly where the backup belongs.
 		_ = os.WriteFile(path+".bak", old, 0o600)
 	}
 
@@ -322,14 +325,17 @@ func strField(key, env, flag string, get func(*File) *string) Field {
 	}
 }
 
-func intField(key, env, flag string, get func(*File) *int) Field {
+// scalarField is the shared wiring for the two scalar settings (int, bool): the
+// config file, the environment and `config set` all go through the same parse
+// and format seams, so one spelling per kind is enough.
+func scalarField[T int | bool](key, env, flag, kind string, get func(*File) *T, parse func(string) (T, error), format func(T) string) Field {
 	return Field{
 		Key: key, Env: env, Flag: flag,
-		Get: func(f *File) string { return strconv.Itoa(*get(f)) },
+		Get: func(f *File) string { return format(*get(f)) },
 		Set: func(f *File, v string) error {
-			n, err := strconv.Atoi(strings.TrimSpace(v))
+			n, err := parse(strings.TrimSpace(v))
 			if err != nil {
-				return fmt.Errorf("%s must be a number, got %q", key, v)
+				return fmt.Errorf("%s must be %s, got %q", key, kind, v)
 			}
 
 			*get(f) = n
@@ -339,21 +345,12 @@ func intField(key, env, flag string, get func(*File) *int) Field {
 	}
 }
 
+func intField(key, env, flag string, get func(*File) *int) Field {
+	return scalarField(key, env, flag, "a number", get, strconv.Atoi, strconv.Itoa)
+}
+
 func boolField(key, env, flag string, get func(*File) *bool) Field {
-	return Field{
-		Key: key, Env: env, Flag: flag,
-		Get: func(f *File) string { return strconv.FormatBool(*get(f)) },
-		Set: func(f *File, v string) error {
-			b, err := strconv.ParseBool(strings.TrimSpace(v))
-			if err != nil {
-				return fmt.Errorf("%s must be true or false, got %q", key, v)
-			}
-
-			*get(f) = b
-
-			return nil
-		},
-	}
+	return scalarField(key, env, flag, "true or false", get, strconv.ParseBool, strconv.FormatBool)
 }
 
 func durationField(key, env, flag string, get func(*File) *string) Field {
@@ -392,12 +389,12 @@ func Fields() []Field {
 			},
 		},
 		{
-			Key:   "database_url",
-			Env:   "DATABASE_URL",
-			Flag:  "--database-url",
-			Mask:  MaskDSN,
-			Get:   func(f *File) string { return f.DatabaseURL },
-			Set:   func(f *File, v string) error { f.DatabaseURL = v; return nil },
+			Key:  "database_url",
+			Env:  "DATABASE_URL",
+			Flag: "--database-url",
+			Mask: MaskDSN,
+			Get:  func(f *File) string { return f.DatabaseURL },
+			Set:  func(f *File, v string) error { f.DatabaseURL = v; return nil },
 			// Not secret: knowing which database an instance talks to is often the whole
 			// point of asking. Only the password is masked.
 		},

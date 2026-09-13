@@ -35,18 +35,18 @@ type EventListItemDTO struct {
 // EventDTO is the full event (detail view): the body is included as base64 so that binary
 // payloads survive the round trip untouched.
 type EventDTO struct {
-	ID             string    `json:"id"`
-	InboxID        string    `json:"inbox_id"`
-	Method         string    `json:"method"`
-	Path           string    `json:"path"`
-	Query          string    `json:"query"`
-	ContentType    string    `json:"content_type"`
+	ID             string      `json:"id"`
+	InboxID        string      `json:"inbox_id"`
+	Method         string      `json:"method"`
+	Path           string      `json:"path"`
+	Query          string      `json:"query"`
+	ContentType    string      `json:"content_type"`
 	Headers        []HeaderDTO `json:"headers"`
-	BodyBase64     string    `json:"body_base64"`
-	BodySize       int       `json:"body_size"`
-	ClientIP       string    `json:"client_ip"`
-	SignatureValid *bool     `json:"signature_valid"`
-	CreatedAt      time.Time `json:"created_at"`
+	BodyBase64     string      `json:"body_base64"`
+	BodySize       int         `json:"body_size"`
+	ClientIP       string      `json:"client_ip"`
+	SignatureValid *bool       `json:"signature_valid"`
+	CreatedAt      time.Time   `json:"created_at"`
 }
 
 // HeaderDTO is a header.
@@ -67,7 +67,7 @@ type HeaderDTO struct {
 // searchable text mirror). Binary payloads have no mirror, so their preview is empty -
 // which is exactly what the UI should show instead of mojibake.
 
-// GET /v1/inboxes/{id}/events
+// GET /v1/inboxes/{id}/events.
 func (a API) listEvents(w http.ResponseWriter, r *http.Request) {
 	inboxID, err := parseUUID(r.PathValue("id"))
 	if err != nil {
@@ -163,7 +163,7 @@ func (a API) clearEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": removed})
 }
 
-// GET /v1/events/{id}
+// GET /v1/events/{id}.
 func (a API) getEvent(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(r.PathValue("id"))
 	if err != nil {
@@ -225,7 +225,7 @@ func (a API) getEvent(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DELETE /v1/events/{id}
+// DELETE /v1/events/{id}.
 func (a API) deleteEvent(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(r.PathValue("id"))
 	if err != nil {

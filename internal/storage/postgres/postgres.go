@@ -473,9 +473,9 @@ func (s *Store) ListEvents(ctx context.Context, f storage.EventFilter) ([]storag
 	}
 
 	if f.ContentType != "" {
-	// Real webhooks send "application/json; charset=utf-8"; compare media types only,
-	// on both sides, so a filter value with parameters still matches.
-	where = append(where, fmt.Sprintf("lower(split_part(e.content_type, ';', 1)) = lower(split_part($%d, ';', 1))", idx))
+		// Real webhooks send "application/json; charset=utf-8"; compare media types only,
+		// on both sides, so a filter value with parameters still matches.
+		where = append(where, fmt.Sprintf("lower(split_part(e.content_type, ';', 1)) = lower(split_part($%d, ';', 1))", idx))
 		args = append(args, f.ContentType)
 		idx++
 	}
@@ -753,6 +753,7 @@ func itoa(v int) string {
 	}
 
 	var buf [20]byte
+
 	i := len(buf)
 
 	for v > 0 {

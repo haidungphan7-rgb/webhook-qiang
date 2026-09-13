@@ -36,15 +36,15 @@ func newHarness(t *testing.T, mutate func(*storage.Inbox)) *harness {
 	store := mem.New()
 
 	inbox := storage.Inbox{
-		ID:               uuid.New(),
-		OwnerKey:         "default",
-		Name:             "test",
+		ID:       uuid.New(),
+		OwnerKey: "default",
+		Name:     "test",
 		// Must only use the token alphabet (no 0/O/1/l/I) - see storage.NewToken.
-		Token:            "testtken7",
-		Enabled:          true,
-		ResponseCode:     200,
-		SignatureHeader:  "X-Signature",
-		SignatureScheme:  "hmac-sha256-hex",
+		Token:           "testtken7",
+		Enabled:         true,
+		ResponseCode:    200,
+		SignatureHeader: "X-Signature",
+		SignatureScheme: "hmac-sha256-hex",
 	}
 
 	if mutate != nil {
@@ -64,10 +64,10 @@ func newHarness(t *testing.T, mutate func(*storage.Inbox)) *harness {
 	}
 
 	h.deps = Deps{
-		Log:       zap.NewNop(),
-		Store:     store,
-		Pub:       bus,
-		Settings:  &config.AppSettings{MaxRequestBodySize: config.DefaultMaxRequestBodySize},
+		Log:        zap.NewNop(),
+		Store:      store,
+		Pub:        bus,
+		Settings:   &config.AppSettings{MaxRequestBodySize: config.DefaultMaxRequestBodySize},
 		TrustProxy: false,
 	}
 
@@ -309,8 +309,8 @@ func TestCapture_ClientIPCannotBeSpoofed(t *testing.T) {
 	h := newHarness(t, nil)
 
 	h.serve(http.MethodPost, "/hooks/testtken7", []byte("{}"), map[string]string{
-		"X-Forwarded-For":   "8.8.8.8",
-		"X-Wh-Trust-Proxy":  "1",
+		"X-Forwarded-For":  "8.8.8.8",
+		"X-Wh-Trust-Proxy": "1",
 	})
 
 	items := h.events(t)
