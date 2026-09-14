@@ -27,7 +27,7 @@ React, delivered as a single binary with the SPA embedded.
 
 ```
 cmd/webhook-tester      entrypoint
-internal/cli            commands: start, migrate
+internal/cli            commands: start, status, install, uninstall, doctor, config, tray, migrate
 internal/config         settings + startup validation
 internal/http           server, SPA, middlewares (logreq, secure, webhook capture)
 internal/httpapi        /api/v1 JSON handlers (hand written DTOs)
@@ -37,8 +37,9 @@ internal/storage        domain model + Store interface (+ postgres, mem)
 internal/migrate        embedded SQL migrations
 internal/retention      background cleanup
 internal/crypto         HKDF + AES-GCM, HMAC signing
+internal/tray           Windows system tray (embedded icons in assets/)
 web/                    React 19 + Mantine 8 SPA
-scripts/                demo script, seed data, local test receiver
+scripts/                demo, seed data, test receiver, desktop helpers (Windows), acceptance suites
 ```
 
 ## Commands
@@ -48,6 +49,7 @@ make build        # server binary
 make test         # go test -race + vitest
 make frontend     # rebuild web/dist
 ./dev.ps1         # run everything (PowerShell 7)
+# Windows without make: same targets via .\make.ps1 (.\make.ps1 build / test / frontend)
 ```
 
 ## Testing expectations

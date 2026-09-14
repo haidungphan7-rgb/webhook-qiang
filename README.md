@@ -32,10 +32,10 @@ $env:DATABASE_URL = 'postgres://postgres:postgres@127.0.0.1:5432/webhook_rd?sslm
 
 ```powershell
 .\webhook-zq-windows-amd64.exe install                # 安装到 %LOCALAPPDATA%\webhook-zq\bin
-.\webhook-zq-windows-amd64.exe install --autostart    # 同上 + 登录时自动 start
+.\webhook-zq-windows-amd64.exe install --autostart    # 同上 + 登录时自动启动托盘
 ```
 
-之后从任意目录运行 `%LOCALAPPDATA%\webhook-zq\bin\webhook-zq.exe`（该目录不在 PATH 上，需要的话可自行加进用户 PATH），卸载走「设置 → 应用」或 `uninstall` 子命令（见下文[停止与卸载](#停止与卸载)）。Linux / macOS 用户下载对应平台的二进制后放到 `~/.local/bin` 即可（`install` 命令也会帮你放；Linux 上该目录通常已在 PATH 中，macOS 若不在，`install` 会提示）。
+之后从任意目录运行 `webhook-zq`——`install` 会把安装目录写进用户 PATH（新开的终端生效；已经开着的终端不会自动刷新，重开即可）。卸载走「设置 → 应用」或 `uninstall` 子命令（见下文[停止与卸载](#停止与卸载)）。Linux / macOS 用户下载对应平台的二进制后放到 `~/.local/bin` 即可（`install` 命令也会帮你放；Linux 上该目录通常已在 PATH 中，macOS 若不在，`install` 会提示）。
 
 ### 依赖（源码构建需要）
 

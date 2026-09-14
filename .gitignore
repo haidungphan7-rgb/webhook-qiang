@@ -55,3 +55,7 @@ e2e.*.log
 ## How this project was built - not part of the product. A stranger cloning the repo wants
 ## the tool, not our conversation history, so it stays out of every branch.
 /docs/ai-logs/
+
+## Internal delivery/review artefacts (plans, acceptance docs, icon design sources).
+## Not part of the product; the shipped tray icons live in internal/tray/assets/.
+/deliver/

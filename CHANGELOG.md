@@ -3,6 +3,17 @@
 本项目的所有显著变更都记录在这个文件里。
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 安装与桌面体验（Windows）
+
+- 双击 exe 默认启动系统托盘（此前双击只打印命令行帮助）。
+- `install` 把安装目录写进用户 PATH（注册表原值读改 + 环境变更广播，不依赖 `setx`），`uninstall` 同步清理；新开的终端生效，已打开的终端不会自动刷新。
+- `doctor` 与 `uninstall` 结尾等待按键——从「设置 → 应用」或托盘菜单拉起的窗口不再一闪而过。
+- 托盘菜单「卸载」引导失败时弹出明确错误（原来可能静默无反应），并附终端兜底命令。
+- `status --json` 的 `log_path` 改为绝对路径；进程路径探测弃用 `wmic`（新版 Windows 已移除）改用 `QueryFullProcessImageName`。
+- 退出码透传修复：脚本里 `status`（0/3/4）与 `tray --exit`（0/1/2）现在可靠可辨。
+
 ## [1.0.1] - 2026-09-14（重新发布）
 
 > v1.0.1 初版发布后补充了内置系统托盘图标，重新发布同号版本以包含这些改进。下方为完整变更记录。
