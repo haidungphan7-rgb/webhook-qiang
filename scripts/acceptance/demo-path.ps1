@@ -22,6 +22,9 @@ if (-not (Test-Path $exe)) {
 if (-not $env:DATABASE_URL) {
     $env:DATABASE_URL = 'postgres://postgres:postgres@127.0.0.1:5432/webhook_rd?sslmode=disable'
 }
+# For any psql the server or a helper script might spawn: without it a password prompt
+# parks on stdin forever in a hidden window.
+if (-not $env:PGPASSWORD) { $env:PGPASSWORD = 'postgres' }
 
 $script:pass = 0
 $script:fail = 0

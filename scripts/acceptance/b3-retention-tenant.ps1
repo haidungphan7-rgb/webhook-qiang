@@ -15,12 +15,23 @@
 
 param(
     [switch]$KeepServers,
-    [string]$Psql = 'C:\Program Files\PostgreSQL\16\bin\psql.exe'
+    [string]$Psql = ''
 )
 
 $ErrorActionPreference = 'Continue'
 $env:PGPASSWORD = 'postgres'
 $env:DATABASE_URL = 'postgres://postgres:postgres@127.0.0.1:5432/webhook_rd?sslmode=disable'
+$env:PGCONNECT_TIMEOUT = '10'
+
+# Same resolution as every other script in the project (scripts/lib/tools.ps1): PATH
+# first, then a version-aware wildcard - a hardcoded "16" only works on machines that
+# happen to run exactly PostgreSQL 16.
+. (Join-Path $PSScriptRoot '..\lib\tools.ps1')
+if (-not $Psql) { $Psql = Find-Tool 'psql' @('C:\Program Files\PostgreSQL\*\bin\psql.exe') }
+if (-not $Psql -or -not (Test-Path $Psql)) {
+    Write-Host 'FAIL  setup  -> psql not found (install PostgreSQL or pass -Psql)' -ForegroundColor Red
+    exit 1
+}
 
 $pass = 0; $fail = 0
 $started = @()
@@ -39,7 +50,30 @@ function Req {
     }
 }
 function J($r) { try { $r.Body | ConvertFrom-Json } catch { $null } }
-function Sql($q) { (& $Psql -U postgres -d webhook_rd -tA -c $q) -join '' }
+# -w + PGPASSWORD (set above) means psql can never park on a password prompt, and
+# WaitForExit is a hard cap so a stuck call cannot hang the whole run.
+function Sql($q) {
+    $tmp = [IO.Path]::GetTempFileName()
+    $err = [IO.Path]::GetTempFileName()
+    # Start-Process does NOT quote array elements - quote the query ourselves or it
+    # arrives as "extra command-line argument ignored" warnings and empty output.
+    $argv = '-w -U postgres -d webhook_rd -tA -c "' + $q.Replace('"', '\"') + '"'
+    $p = Start-Process -FilePath $Psql -ArgumentList $argv `
+        -NoNewWindow -PassThru -RedirectStandardOutput $tmp -RedirectStandardError $err
+    if (-not $p.WaitForExit(20000)) {
+        $p.Kill($true)
+        Remove-Item $tmp, $err -Force -ErrorAction SilentlyContinue
+        Write-Host "psql timed out after 20s: $q" -ForegroundColor Red
+        return ''
+    }
+    $out = ((Get-Content $tmp -Raw -ErrorAction SilentlyContinue) -join '')
+    if ($p.ExitCode -ne 0) {
+        $e = (Get-Content $err -Raw -ErrorAction SilentlyContinue).Trim()
+        Write-Host "psql exited $($p.ExitCode): $e" -ForegroundColor Red
+    }
+    Remove-Item $tmp, $err -Force -ErrorAction SilentlyContinue
+    return $out
+}
 function Chk($id, $ok, $detail) {
     if ($ok) { $script:pass++; Write-Host "PASS  $id" -ForegroundColor Green }
     else { $script:fail++; Write-Host "FAIL  $id  -> $detail" -ForegroundColor Red }

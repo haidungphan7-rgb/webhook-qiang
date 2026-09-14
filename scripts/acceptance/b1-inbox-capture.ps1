@@ -13,13 +13,26 @@
 
 param(
     [string]$Base = 'http://127.0.0.1:8080',
-    [string]$Psql = 'C:\Program Files\PostgreSQL\16\bin\psql.exe',
+    [string]$Psql = '',
     [string]$DbUrl = $(if ($env:DATABASE_URL) { $env:DATABASE_URL } else { 'postgres://postgres:postgres@127.0.0.1:5432/webhook_rd?sslmode=disable' }),
     [string]$ResultFile = "$env:TEMP\whq-b1-result.txt"
 )
 
 $ProgressPreference = 'SilentlyContinue'
 $pass = 0; $fail = 0; $log = @()
+
+# psql is resolved like everywhere else in the project (scripts/lib/tools.ps1): PATH
+# first, then C:\Program Files\PostgreSQL\*\bin - a hardcoded "16" breaks on every
+# machine that installed a different major.
+. (Join-Path $PSScriptRoot '..\lib\tools.ps1')
+if (-not $Psql) { $Psql = Find-Tool 'psql' @('C:\Program Files\PostgreSQL\*\bin\psql.exe') }
+if (-not $env:PGPASSWORD) { $env:PGPASSWORD = 'postgres' }
+$env:PGCONNECT_TIMEOUT = '10'
+
+if (-not $Psql -or -not (Test-Path $Psql)) {
+    Write-Host "FAIL  setup  -> psql not found (install PostgreSQL or pass -Psql)" -ForegroundColor Red
+    exit 1
+}
 
 function Req {
     param([string]$M = 'GET', [string]$U, [hashtable]$H = @{}, [string]$B, [string]$InFile)
@@ -48,10 +61,35 @@ function ErrMsg($r) { $j = J $r; if ($j -and $j.error) { $j.error.message } else
 # whole connection and ignores every later argument ("extra command-line argument -c
 # ignored"), silently returning nothing.
 #
-# Run this from an interactive shell - psql with no console waits on stdin and hangs,
-# which a background run cannot recover from.
+# Hang-proof by construction:
+#   * PGPASSWORD is exported above, and -w forbids the password prompt, so a missing
+#     credential fails fast instead of parking on stdin (that is what used to hang the
+#     background runs).
+#   * PGCONNECT_TIMEOUT bounds the connection attempt.
+#   * WaitForExit is a hard cap on the whole call, and the process tree is killed when
+#     it expires - no psql may outlive this script.
 function Sql($q) {
-    return ((& $Psql -U postgres -d webhook_rd -tA -c $q) -join "`n").Trim()
+    $tmp = [IO.Path]::GetTempFileName()
+    $err = [IO.Path]::GetTempFileName()
+    # Start-Process does NOT quote array elements, so a query with spaces would arrive
+    # as a pile of "extra command-line argument ignored" warnings and an empty result.
+    # Quote it ourselves (CommandLineToArgvW rules: embedded quotes escaped with \").
+    $argv = '-w -U postgres -d webhook_rd -tA -c "' + $q.Replace('"', '\"') + '"'
+    $p = Start-Process -FilePath $Psql -ArgumentList $argv `
+        -NoNewWindow -PassThru -RedirectStandardOutput $tmp -RedirectStandardError $err
+    if (-not $p.WaitForExit(20000)) {
+        $p.Kill($true)
+        Remove-Item $tmp, $err -Force -ErrorAction SilentlyContinue
+        Write-Host "psql timed out after 20s: $q" -ForegroundColor Red
+        return ''
+    }
+    $out = ((Get-Content $tmp -Raw -ErrorAction SilentlyContinue) -join "`n").Trim()
+    if ($p.ExitCode -ne 0) {
+        $e = (Get-Content $err -Raw -ErrorAction SilentlyContinue).Trim()
+        Write-Host "psql exited $($p.ExitCode): $e" -ForegroundColor Red
+    }
+    Remove-Item $tmp, $err -Force -ErrorAction SilentlyContinue
+    return $out
 }
 
 # Results are collected as well as printed: a CI job (or a caller that redirects the
