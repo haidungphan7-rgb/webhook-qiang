@@ -276,6 +276,7 @@ func newJobObject() (*jobObject, error) {
 	}
 
 	var info windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+
 	info.BasicLimitInformation.LimitFlags = windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
 
 	if _, err := windows.SetInformationJobObject(h,
@@ -376,6 +377,8 @@ func openURL(u string) error {
 
 // revealInExplorer opens Explorer with the file selected.
 func revealInExplorer(path string) error {
+	// #nosec G204 -- explorer.exe is the documented way to reveal a file; the
+	// path comes from our own config directory, not user input.
 	return exec.Command("explorer.exe", "/select,"+path).Start()
 }
 
@@ -399,8 +402,6 @@ var procFreeConsole = windows.NewLazySystemDLL("kernel32.dll").NewProc("FreeCons
 // budget runs out). There is no error path by design: the worst outcome is a
 // late icon, never a dead tray. FindWindowW is not wrapped by x/sys, hence
 // the LazyProc.
-//
-//nolint:gosec // G103: unsafe.Pointer use is the Win32 calling convention here.
 func waitForTaskbar() {
 	name, err := windows.UTF16PtrFromString("Shell_TrayWnd")
 	if err != nil {
@@ -423,5 +424,5 @@ func waitForTaskbar() {
 // blinks and is gone".
 func freeConsole() {
 	// #nosec G104 -- no console to free is the common case, not an error.
-	_, _, _ = procFreeConsole.Call()
+	_, _, _ = procFreeConsole.Call() //nolint:dogsled // Win32 Call returns 3 values, all unused
 }

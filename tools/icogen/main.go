@@ -1,8 +1,9 @@
 // Command icogen generates the webhook-zq tray icons.
 //
 // Deliverables (written to -out dir, default D:\webhook-zq\deliver):
-//   tray-active.ico   solid bolt, #0052d9 (running; matches web header blue)
-//   tray-stopped.ico  same shape, #9aa4b2 (stopped)
+//
+//	tray-active.ico   solid bolt, #0052d9 (running; matches web header blue)
+//	tray-stopped.ico  same shape, #9aa4b2 (stopped)
 //
 // Each .ico embeds three BMP layers (16/24/32 px, 32bpp BGRA + all-zero AND
 // mask) - the most compatible encoding for Windows Shell_NotifyIcon/LoadImage.
@@ -26,6 +27,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -54,6 +56,7 @@ func fitUnit(pts []Pt, pad float64) []Pt {
 	sx, sy := maxX-minX, maxY-minY
 	s := math.Min((1-2*pad)/sx, (1-2*pad)/sy)
 	ox, oy := (1-sx*s)/2, (1-sy*s)/2
+
 	out := make([]Pt, len(pts))
 	for i, p := range pts {
 		out[i] = Pt{ox + (p.X-minX)*s, oy + (p.Y-minY)*s}
@@ -64,6 +67,7 @@ func fitUnit(pts []Pt, pad float64) []Pt {
 // inPoly is the PNPOLY even-odd point-in-polygon test.
 func inPoly(x, y float64, pts []Pt) bool {
 	in := false
+
 	j := len(pts) - 1
 	for i := 0; i < len(pts); i++ {
 		pi, pj := pts[i], pts[j]
@@ -86,15 +90,18 @@ func rasterAlpha(pts []Pt, n, ss int) [][]uint8 {
 		grid[y] = make([]uint8, n)
 		for x := 0; x < n; x++ {
 			hit := 0
+
 			for j := 0; j < ss; j++ {
 				for i := 0; i < ss; i++ {
 					px := (float64(x) + (float64(i)+0.5)/float64(ss)) / float64(n)
 					py := (float64(y) + (float64(j)+0.5)/float64(ss)) / float64(n)
+
 					if inPoly(px, py, pts) {
 						hit++
 					}
 				}
 			}
+
 			grid[y][x] = uint8(math.Round(float64(hit) / float64(ss*ss) * 255))
 		}
 	}
@@ -114,17 +121,17 @@ func bmpLayer(n int, alpha [][]uint8, rgb [3]uint8) []byte {
 	mask := make([]byte, maskRow*n)
 
 	var h bytes.Buffer
-	binary.Write(&h, binary.LittleEndian, uint32(40))                        // biSize
-	binary.Write(&h, binary.LittleEndian, int32(n))                                      // biWidth
-	binary.Write(&h, binary.LittleEndian, int32(2*n))                                    // biHeight = XOR + AND
-	binary.Write(&h, binary.LittleEndian, uint16(1))                                     // biPlanes
-	binary.Write(&h, binary.LittleEndian, uint16(32))                                    // biBitCount
-	binary.Write(&h, binary.LittleEndian, uint32(0))                                     // biCompression = BI_RGB
-	binary.Write(&h, binary.LittleEndian, uint32(len(pixels)+len(mask)))                 // biSizeImage
-	binary.Write(&h, binary.LittleEndian, int32(0))                                      // biXPelsPerMeter
-	binary.Write(&h, binary.LittleEndian, int32(0))                                      // biYPelsPerMeter
-	binary.Write(&h, binary.LittleEndian, uint32(0))                                     // biClrUsed
-	binary.Write(&h, binary.LittleEndian, uint32(0))                                     // biClrImportant
+	mustWrite(&h, uint32(40))                    // biSize
+	mustWrite(&h, int32(n))                      // biWidth
+	mustWrite(&h, int32(2*n))                    // biHeight = XOR + AND
+	mustWrite(&h, uint16(1))                     // biPlanes
+	mustWrite(&h, uint16(32))                    // biBitCount
+	mustWrite(&h, uint32(0))                     // biCompression = BI_RGB
+	mustWrite(&h, uint32(len(pixels)+len(mask))) // biSizeImage
+	mustWrite(&h, int32(0))                      // biXPelsPerMeter
+	mustWrite(&h, int32(0))                      // biYPelsPerMeter
+	mustWrite(&h, uint32(0))                     // biClrUsed
+	mustWrite(&h, uint32(0))                     // biClrImportant
 	h.Write(pixels)
 	h.Write(mask)
 	return h.Bytes()
@@ -136,19 +143,19 @@ func buildICO(sizes []int, alphas map[int][][]uint8, rgb [3]uint8) []byte {
 		layers[i] = bmpLayer(n, alphas[n], rgb)
 	}
 	var out bytes.Buffer
-	binary.Write(&out, binary.LittleEndian, uint16(0))
-	binary.Write(&out, binary.LittleEndian, uint16(1))              // type = icon
-	binary.Write(&out, binary.LittleEndian, uint16(len(sizes)))
+	mustWrite(&out, uint16(0))
+	mustWrite(&out, uint16(1)) // type = icon
+	mustWrite(&out, uint16(len(sizes)))
 	offset := 6 + 16*len(sizes)
 	for i, n := range sizes {
-		binary.Write(&out, binary.LittleEndian, uint8(n))           // width
-		binary.Write(&out, binary.LittleEndian, uint8(n))           // height
-		binary.Write(&out, binary.LittleEndian, uint8(0))           // colorCount (0 = truecolor)
-		binary.Write(&out, binary.LittleEndian, uint8(0))           // reserved
-		binary.Write(&out, binary.LittleEndian, uint16(1))          // planes
-		binary.Write(&out, binary.LittleEndian, uint16(32))         // bitCount
-		binary.Write(&out, binary.LittleEndian, uint32(len(layers[i])))
-		binary.Write(&out, binary.LittleEndian, uint32(offset))
+		mustWrite(&out, uint8(n))   // width
+		mustWrite(&out, uint8(n))   // height
+		mustWrite(&out, uint8(0))   // colorCount (0 = truecolor)
+		mustWrite(&out, uint8(0))   // reserved
+		mustWrite(&out, uint16(1))  // planes
+		mustWrite(&out, uint16(32)) // bitCount
+		mustWrite(&out, uint32(len(layers[i])))
+		mustWrite(&out, uint32(offset))
 		offset += len(layers[i])
 	}
 	for _, l := range layers {
@@ -195,7 +202,9 @@ func parseICO(b []byte) ([]layer, error) {
 		if len(d) < 40 {
 			return nil, fmt.Errorf("layer %d: BMP header truncated", i)
 		}
+		//nosec G115 -- values come from our own generated .ico files, bounded by file format.
 		biW := int(int32(binary.LittleEndian.Uint32(d[4:8])))
+		//nosec G115 -- same as above: BMP header height, always small.
 		biH := int(int32(binary.LittleEndian.Uint32(d[8:12]))) / 2
 		hBpp := int(binary.LittleEndian.Uint16(d[14:16]))
 		if biW != w || biH != h {
@@ -231,6 +240,14 @@ func parseICO(b []byte) ([]layer, error) {
 	return layers, nil
 }
 
+// mustWrite writes a binary value in little-endian order, panicking on error.
+// bytes.Buffer.Write never errors, so this is safe for the code generator.
+func mustWrite(w io.Writer, data any) {
+	if err := binary.Write(w, binary.LittleEndian, data); err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	outDir := flag.String("out", `D:\webhook-zq\deliver`, "output directory")
 	pad := flag.Float64("pad", 0.07, "shape padding fraction")
@@ -249,10 +266,10 @@ func main() {
 
 	activePath := filepath.Join(*outDir, "tray-active.ico")
 	stoppedPath := filepath.Join(*outDir, "tray-stopped.ico")
-	if err := os.WriteFile(activePath, buildICO(sizes, alphas, activeRGB), 0o644); err != nil {
+	if err := os.WriteFile(activePath, buildICO(sizes, alphas, activeRGB), 0o600); err != nil {
 		fatal("write active: %v", err)
 	}
-	if err := os.WriteFile(stoppedPath, buildICO(sizes, alphas, stoppedRGB), 0o644); err != nil {
+	if err := os.WriteFile(stoppedPath, buildICO(sizes, alphas, stoppedRGB), 0o600); err != nil {
 		fatal("write stopped: %v", err)
 	}
 	fmt.Printf("written: %s (%d bytes)\n", activePath, fileSize(activePath))

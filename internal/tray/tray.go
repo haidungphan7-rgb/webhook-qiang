@@ -54,7 +54,7 @@ type app struct {
 	// path too, and stopService() matches by exe path.
 	uninstalling atomic.Bool
 
-	mToggle *systray.MenuItem
+	mToggle  *systray.MenuItem
 	toggleMu sync.Mutex
 }
 
@@ -122,9 +122,13 @@ func (a *app) onReady() {
 	mSettings := systray.AddMenuItem("打开设置页", "浏览器打开设置")
 	mDoctor := systray.AddMenuItem("自检", "在新窗口运行 doctor 并显示结果")
 	mLog := systray.AddMenuItem("打开日志", "在资源管理器中定位服务日志")
+
 	systray.AddSeparator()
+
 	mUninstall := systray.AddMenuItem("卸载 webhook-zq…", "停止服务并打开卸载向导")
+
 	systray.AddSeparator()
+
 	mQuit := systray.AddMenuItem("退出", "退出托盘并停止服务")
 
 	a.mToggle = mToggle
@@ -211,7 +215,7 @@ func (a *app) logTransition(s iconState) {
 		return
 	}
 
-	if err := os.MkdirAll(parentDir(path), 0o755); err != nil {
+	if mkErr := os.MkdirAll(parentDir(path), 0o755); mkErr != nil {
 		return
 	}
 
@@ -221,7 +225,7 @@ func (a *app) logTransition(s iconState) {
 		return
 	}
 
-	defer f.Close() //nolint:errcheck // append-only log, nothing to handle
+	defer f.Close()
 
 	if s == stateRunning {
 		_, _ = fmt.Fprintf(f, "%s icon blue: service reachable (port %d)\n",
@@ -268,7 +272,7 @@ func (a *app) applyState(s iconState) {
 		systray.SetIcon(assets.Stopped())
 		systray.SetTooltip("webhook-zq 启动中…")
 		a.setToggleTitle("停止服务")
-	default:
+	case stateStopped:
 		systray.SetIcon(assets.Stopped())
 		systray.SetTooltip("webhook-zq 已停止")
 		a.setToggleTitle("启动服务")
@@ -327,7 +331,7 @@ func (a *app) spawnService() {
 		return
 	}
 
-	if err := os.MkdirAll(parentDir(logPath), 0o755); err != nil {
+	if mkErr := os.MkdirAll(parentDir(logPath), 0o755); mkErr != nil {
 		return
 	}
 
@@ -338,7 +342,7 @@ func (a *app) spawnService() {
 		return
 	}
 
-	defer logFile.Close() //nolint:staticcheck // child holds its own duplicate
+	defer logFile.Close()
 
 	job, err := newJobObject()
 	if err != nil {
@@ -362,7 +366,7 @@ func (a *app) spawnService() {
 	// #nosec G115 -- Pid comes from the OS as a DWORD already.
 	proc, err := windows.OpenProcess(windows.PROCESS_SET_QUOTA, false, uint32(cmd.Process.Pid))
 	if err == nil {
-		defer func() { _ = windows.CloseHandle(proc) }() //nolint:errcheck // crash net only
+		defer func() { _ = windows.CloseHandle(proc) }() // crash net only
 
 		if err := job.assign(proc); err != nil {
 			// The job is only the crash net; the stop path kills by exe

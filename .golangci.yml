@@ -59,6 +59,9 @@ linters:
   settings:
     dupl:
       threshold: 100
+    gosec:
+      excludes:
+        - G115
     godot:
       scope: declarations
       capital: false
@@ -105,6 +108,7 @@ linters:
       - third_party$
       - builtin$
       - examples$
+      - tools
       - web/node_modules
 formatters:
   enable:
@@ -134,4 +138,5 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+      - tools
       - web/node_modules
