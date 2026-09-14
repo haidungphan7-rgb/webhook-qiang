@@ -3,7 +3,21 @@
 本项目的所有显著变更都记录在这个文件里。
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.0.1] - 2026-09-14
+
+### 安装与卸载（内置子命令）
+
+- `webhook-zq install`：把下载的单文件 exe 变成"正常安装的软件"——Windows 上注册进「设置 → 应用」、可卸载，`--autostart` 附带登录自启（二进制落在 `%LOCALAPPDATA%\webhook-zq\bin`，Linux / macOS 落 `~/.local/bin`）。环境变量里的 `DATABASE_URL` 自动捕获写入 config.json（文件里已有不同值时不覆盖，只提示）。
+- `webhook-zq uninstall`：交互式卸载，先扫描列出**进程（含托盘 / 管理窗口）/ 开机自启 / 「应用和功能」条目 / 程序文件（含 config.json 与加密密钥）**再确认；**数据库默认保留**——卸载程序不替你决定删不删你抓到的数据。`--drop-database` 才删库（先显示收件箱 / 事件数量，要求输入 `yes` 二次确认）；`--yes` 供脚本场景跳过交互。
+- 卸载顺序保证先停托盘 / 管理窗口、再停服务进程；进程按命令行识别（脚本名 + 项目路径双条件），不会误杀其它项目的同名脚本。
+
+### 启动
+
+- `start` 读取 config.json：`--database-url` 与监听地址 / 端口支持 `命令行 flag > 环境变量 > config.json` 三级来源（`config explain` 打印的正是这张优先级表）；config.json 损坏时启动报错并给出文件路径，不再静默忽略。登录自启任务因此不再需要自带环境变量。
+
+### 文档
+
+- README 新增「下载即用」小节（install / uninstall）；环境变量优先级说明补上 config.json 一级。
 
 ## [1.0.0] - 2026-09-13
 
