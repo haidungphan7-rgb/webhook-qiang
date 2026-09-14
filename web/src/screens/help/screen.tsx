@@ -17,6 +17,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { api, formatBytes, type ServerSettings } from '~/api/v1'
 import { dayjs } from '~/shared/dayjs'
+import { StatusBadge } from '~/shared/components/status-badge'
 
 const SAMPLE_CURL = `curl -X POST 'http://127.0.0.1:8080/hooks/<你的 token>' \\
   -H 'content-type: application/json' \\
@@ -318,7 +319,13 @@ export function HelpScreen(): React.JSX.Element {
           <Title order={5}>敏感请求头</Title>
 
           <Text fz="sm">
-            下面这些请求头默认<Badge size="xs" variant="light">掩码显示</Badge>，而且
+            {/* `component="span"`: the Badge root is a div, and a div inside this Text's <p>
+                is invalid HTML that React reports as a hydration error. */}
+            下面这些请求头默认
+            <StatusBadge component="span" size="xs" color="gray.8">
+              掩码显示
+            </StatusBadge>
+            ，而且
             <Text span fw={700}>数据库里也不存明文</Text>
             ：配置了加密密钥时以密文存储，没配置时直接存掩码（原值不可恢复）。
             详情页可以打开「显示敏感头原始值」查看，前提是服务启用了访问控制——否则接口是开放的，解密就失去意义了。
