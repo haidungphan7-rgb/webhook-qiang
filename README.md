@@ -13,7 +13,31 @@
 
 ## 1. 快速开始
 
-### 依赖
+### 下载即用（Windows，推荐）
+
+不想装 Go / Node 工具链的话，直接用 Release 里编译好的单文件 exe（前端已内嵌，不需要 Node）：
+
+```powershell
+# 1) 从 GitHub Releases 下载（本页右侧 Releases，或命令行）：
+curl.exe -LO https://github.com/haidungphan7-rgb/webhook-qiang/releases/latest/download/webhook-zq-windows-amd64.exe
+
+# 2) 告诉它数据库在哪（库要自己建，迁移只建表不建库）：
+$env:DATABASE_URL = 'postgres://postgres:postgres@127.0.0.1:5432/webhook_rd?sslmode=disable'
+
+# 3) 跑起来，打开 http://127.0.0.1:8080
+.\webhook-zq-windows-amd64.exe start --port 8080
+```
+
+想让它像"正常安装的软件"一样可管理（出现在「设置 → 应用」里、可卸载、可自启）：
+
+```powershell
+.\webhook-zq-windows-amd64.exe install                # 安装到 %LOCALAPPDATA%\webhook-zq\bin
+.\webhook-zq-windows-amd64.exe install --autostart    # 同上 + 登录时自动 start
+```
+
+之后从任意目录运行 `%LOCALAPPDATA%\webhook-zq\bin\webhook-zq.exe`（该目录不在 PATH 上，需要的话可自行加进用户 PATH），卸载走「设置 → 应用」或 `uninstall` 子命令（见下文[停止与卸载](#停止与卸载)）。Linux / macOS 用户下载对应平台的二进制后放到 `~/.local/bin` 即可（`install` 命令也会帮你放；Linux 上该目录通常已在 PATH 中，macOS 若不在，`install` 会提示）。
+
+### 依赖（源码构建需要）
 
 | 组件 | 版本 | 用途 |
 |---|---|---|
@@ -108,7 +132,7 @@ docker compose up          # http://127.0.0.1:8080
 
 ### 环境变量
 
-每个启动参数都有**同名的环境变量**作为兜底（**没有前缀**），优先级是 `命令行 flag > 环境变量 > 默认值`：
+每个启动参数都有**同名的环境变量**作为兜底（**没有前缀**）。优先级是 `命令行 flag > 环境变量 > config.json > 默认值`（config.json 由 `install` 或 `webhook-zq config set` 写入，`config explain` 打印的正是这张优先级表；`ENCRYPT_KEY` / `AUTH_TOKEN` / `AUTH_KEYS` 例外——部署密钥只从环境变量读，绝不落文件）：
 
 ```bash
 DATABASE_URL HTTP_PORT SERVER_ADDR MAX_REQUEST_BODY_SIZE
@@ -190,6 +214,22 @@ pwsh ./scripts/service.ps1 -Remove    # 取消自启 + 停实例 + 删掉含连�
 
 ### 停止与卸载
 
+**用下载的 exe 安装的**（`webhook-zq install`），一条命令交互式卸载（手里还留着下载的 exe 的话，在下载目录直接跑 `.\webhook-zq-windows-amd64.exe uninstall` 也一样）：
+
+```powershell
+$whq = "$env:LOCALAPPDATA\webhook-zq\bin\webhook-zq.exe"
+& $whq uninstall
+```
+
+它会先扫描再确认：进程 / 开机自启 / 「应用和功能」条目 / 程序文件（含 config.json 与加密密钥）默认移除；**数据库默认保留**——那是你抓到的数据，卸载程序不该替你决定删不删。真要连库一起删：
+
+```powershell
+& $whq uninstall --drop-database   # 会显示库里的收件箱/事件数量，并要求输入 yes 二次确认
+& $whq uninstall --yes             # 脚本场景：跳过交互，按默认执行（不删库）
+```
+
+**源码仓库用户**（有 `scripts/` 目录的）继续用脚本版，它能额外清理构建产物：
+
 ```powershell
 # 停掉（前台运行时直接按 Ctrl+C 最干净，程序会优雅退出）
 pwsh ./scripts/uninstall.ps1                  # 只停止服务，数据全部保留
@@ -202,7 +242,7 @@ pwsh ./scripts/uninstall.ps1 -All             # 以上全部
 ```
 
 默认行为是**只停进程、不删任何数据**；删库需要手工输入 `yes` 确认。
-> 注意：PostgreSQL **本体不会**被卸载脚本移除（它是独立安装的软件），需要的话在「应用和功能」里单独卸载。
+> 注意：PostgreSQL **本体不会**被卸载命令移除（它是独立安装的软件），需要的话在「应用和功能」里单独卸载。
 
 ### 常见组合速查表
 
@@ -540,7 +580,7 @@ pwsh -File _base/e2e.ps1           # 端到端（真实 PostgreSQL）
 ## 10. 常用参数
 
 ```
---database-url            PostgreSQL DSN（必填，或 DATABASE_URL）
+--database-url            PostgreSQL DSN（必填；flag > DATABASE_URL > config.json）
 --port / --addr           监听地址（默认 8080 / 0.0.0.0）
 --max-request-body-size   1 MiB
 --replay-timeout          10s
