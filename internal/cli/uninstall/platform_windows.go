@@ -3,6 +3,7 @@
 package uninstallcmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -300,6 +301,37 @@ func appListEntryExists() bool {
 	_, err := registry.OpenKey(registry.CURRENT_USER, appListKey, registry.QUERY_VALUE)
 
 	return err == nil
+}
+
+var (
+	kernel32DLL               = windows.NewLazySystemDLL("kernel32.dll")
+	procGetConsoleProcessList = kernel32DLL.NewProc("GetConsoleProcessList")
+)
+
+// consoleProcessCount reports how many processes share the current console.
+// x/sys/windows does not wrap GetConsoleProcessList, hence the lazy syscall.
+// 0 means the process has no console at all (detached, or pipes only).
+func consoleProcessCount() uint32 {
+	// #nosec G103 -- the pointer is the documented calling convention of the API.
+	n, _, _ := procGetConsoleProcessList.Call(2, uintptr(unsafe.Pointer(&[2]uint32{})))
+	return uint32(n)
+}
+
+// maybePause keeps the uninstaller's console open when Windows created it just
+// for this process - which is what happens when the entry is launched from
+// "设置 → 应用 → 安装的应用". Without a pause the window vanishes with the
+// summary unread. The user's own terminal (the shell shares the console, so
+// the process list has two entries) and piped runs (no console) close as
+// before, and --yes never pauses: scripts own the console's lifetime.
+func maybePause(yes bool) {
+	if yes || consoleProcessCount() != 1 {
+		return
+	}
+
+	fmt.Println("")
+	fmt.Print("按回车键关闭窗口…")
+
+	_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
 }
 
 // removeAppDir deletes the application directory. When the uninstaller itself

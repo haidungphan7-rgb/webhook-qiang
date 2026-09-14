@@ -7,9 +7,9 @@
 ---
 
 > **关于平台**：服务端本体是纯 Go，Linux / macOS / Windows 都能跑，也可以直接用 Docker。
-> 但 `scripts/` 下的托盘、控制面板、图形启动器与卸载器是 **Windows 专用**的桌面便利工具
-> （依赖 WinForms）；Linux / macOS 请用命令行、`systemd`/`launchd` 或 `docker compose`。
-> 下面每一节都同时给出 bash 与 PowerShell 两种写法。
+> Windows 托盘图标已内置进二进制（`webhook-zq tray`），`scripts/` 下其余的控制面板、图形启动器
+> 与卸载器仍是 **Windows 专用**的桌面便利工具（依赖 WinForms）；Linux / macOS 请用命令行、
+> `systemd`/`launchd` 或 `docker compose`。下面每一节都同时给出 bash 与 PowerShell 两种写法。
 
 ## 1. 快速开始
 
@@ -181,36 +181,40 @@ webhook-zq doctor
 
 ### 托盘图标（推荐）
 
-双击 **`托盘.bat`**，或用命令：
+双击 **`启动.bat`**，或用命令：
 
 ```powershell
-pwsh ./scripts/tray.ps1
+webhook-zq tray
 ```
 
-右下角出现图标后：
+右下角出现图标后（Windows 11 新图标默认在 `^` 溢出区）：
 
-- **双击** → 打开界面
-- **右键** → 打开界面 / 显示状态 / **退出（停止服务）**
+- **打开界面** → 浏览器打开 webhook-zq
+- **启动服务 / 停止服务** → 一键启停后台服务
+- **打开设置页** → 浏览器打开设置
+- **自检** → 新窗口运行 doctor
+- **打开日志** → 资源管理器定位服务日志
+- **卸载 webhook-zq…** → 停止服务并打开卸载向导
+- **退出** → 退出托盘并停止服务
 
+图标颜色反映服务状态：**蓝色**=端口可达，**灰色**=已停止。
 **退出图标时会把服务一起停掉**——托盘就是开关，不会留下你看不见的后台进程。
 启动时若端口上已经有实例在跑，托盘会**接管**它而不是再起一个（再起只会端口冲突）。
 
 ### 后台常驻（开机自启）
 
-不想每次开终端的话，把它设成登录后自动运行：
+不想每次开终端的话，用 `install --autostart` 一步到位（注册计划任务，登录时自动启动托盘）：
 
 ```powershell
-pwsh ./scripts/service.ps1 -Install -DatabaseUrl "postgres://postgres:<密码>@127.0.0.1:5432/webhook_rd?sslmode=disable"
-pwsh ./scripts/service.ps1 -Status    # 看状态与健康检查
-pwsh ./scripts/service.ps1 -Stop      # 只停当前实例，保留自启
-pwsh ./scripts/service.ps1 -Remove    # 取消自启 + 停实例 + 删掉含连接串的启动脚本
+webhook-zq install --autostart       # 安装 + 登录自启（跑的是 tray 子命令，无黑窗）
+webhook-zq status                    # 看状态与健康检查
+webhook-zq tray --status             # 查询托盘是否在运行
+webhook-zq uninstall                 # 卸载（含取消自启 + 停服务 + 删文件）
 ```
 
 > **为什么不是 Windows 服务**：`sc.exe` 只能管实现了服务控制接口的程序，普通控制台程序启动必然失败（1053 超时）。
 > 计划任务是 Windows 内置能力，程序无需改造，效果一样：登录后自动运行、不显示窗口、关掉终端也不停。
 > Linux 上直接用 systemd（见 `docs/部署指南.md` §3B），systemd 管理普通前台进程本来就没问题。
->
-> 环境变量（含 `DATABASE_URL`）保存在 `webhook-zq-background.cmd` 里，`-Remove` 会一并删掉。
 
 ### 停止与卸载
 

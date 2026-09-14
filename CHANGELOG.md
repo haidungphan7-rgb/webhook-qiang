@@ -5,6 +5,16 @@
 
 ## [1.0.1] - 2026-09-14
 
+### 内置托盘图标（Windows）
+
+- `webhook-zq tray`：单 exe 内置的系统托盘图标，替代旧版 PowerShell 脚本方案。启动时若端口上已有实例则**接管**而非重启；退出时停止服务，不留后台孤儿进程。
+- `tray --exit` / `tray --status` / `tray --uninstall`：通过命名内核对象（Mutex + Event）与运行中的托盘通信，供脚本和卸载流程使用。退出码作为稳定契约（0=成功，1=未运行，2=超时）。
+- 图标颜色反映服务状态（蓝色=端口可达 / 灰色=已停止），10s 轮询；状态判定走 `status` 退出码（0=运行且健康，3=运行但不健康，4=未运行）。
+- `install --autostart` 的计划任务目标从 `start` 改为 `tray`：登录后自动出图标、后台运行无黑窗。
+- `start` 成功后自动拉起托盘（DETACHED + HideWindow），开发者直跑 `start` 也能得到图标。
+- 删除 `托盘.bat` 与 `scripts/tray.ps1`（功能已内置）；`启动.bat` 改为直接调用 `bin\webhook-zq.exe tray`。
+- 卸载时先协调托盘退出（通知 + 等 mutex 释放），再执行删除；`trayScripts` kill list 保留不动（升级防御：清理旧版 PS 托盘进程）。
+
 ### 安装与卸载（内置子命令）
 
 - `webhook-zq install`：把下载的单文件 exe 变成"正常安装的软件"——Windows 上注册进「设置 → 应用」、可卸载，`--autostart` 附带登录自启（二进制落在 `%LOCALAPPDATA%\webhook-zq\bin`，Linux / macOS 落 `~/.local/bin`）。环境变量里的 `DATABASE_URL` 自动捕获写入 config.json（文件里已有不同值时不覆盖，只提示）。

@@ -15,6 +15,10 @@ func platformItems() []item {
 	return nil
 }
 
+// maybePause is a Windows-only affordance: elsewhere the uninstaller always
+// runs in a terminal the user owns, so there is no window that could vanish.
+func maybePause(bool) {}
+
 // scanFiles reports the installed binary and the config directory when they
 // exist.
 func scanFiles() []item {

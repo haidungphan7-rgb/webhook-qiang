@@ -112,13 +112,37 @@ func NewCommand(log *zap.Logger) *cli.Command {
 				enc := json.NewEncoder(c.Root().Writer)
 				enc.SetIndent("", "  ")
 
-				return enc.Encode(res)
+				if err := enc.Encode(res); err != nil {
+					return err
+				}
+
+				return exitCodeFor(&res)
 			}
 
 			printTable(c, &res)
 
-			return nil
+			return exitCodeFor(&res)
 		},
+	}
+}
+
+// exitCodeFor is the script-facing half of status: the printed report is for
+// humans, the exit code is for everything else (the tray's doctor menu item,
+// the acceptance scripts, any wrapper). The mapping is a published contract:
+//
+//	0  running and healthy
+//	3  running but /healthz failed (half-dead service)
+//	4  not running
+//
+// Message stays empty on purpose: the report above is the message.
+func exitCodeFor(r *Result) error {
+	switch {
+	case !r.Running:
+		return cli.Exit("", 4)
+	case !r.Healthy:
+		return cli.Exit("", 3)
+	default:
+		return nil
 	}
 }
 

@@ -34,7 +34,7 @@ func NewCommand(log *zap.Logger) *cli.Command {
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:  "autostart",
-				Usage: "同时注册登录时自启（用户级计划任务，运行 start）",
+				Usage: "同时注册登录时自启（用户级计划任务，启动托盘，后台运行无黑窗）",
 			},
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
@@ -68,9 +68,10 @@ func run(autostart bool) error {
 
 	fmt.Println(`已注册到 "设置 → 应用 → 安装的应用"（搜索 webhook-zq 可见）。`)
 
-	// The logon task runs `start` with no environment of its own, and `start`
-	// reads the config file as the layer between the environment and the
-	// defaults - so persisting the DSN now is what makes autostart work.
+	// The logon task runs the tray with no environment of its own, and the
+	// tray-spawned `start` reads the config file as the layer between the
+	// environment and the defaults - so persisting the DSN now is what makes
+	// autostart work.
 	captureDatabaseURL()
 
 	if autostart {
@@ -87,8 +88,10 @@ func run(autostart bool) error {
 		fmt.Println(`          （start 需要一个 PostgreSQL；未配置时启动会给出三种安装方式）`)
 	}
 
-	fmt.Println("  启动    webhook-zq start     然后打开 http://localhost:8080")
-	fmt.Println("  卸载    webhook-zq uninstall（或从 \"设置 → 应用\" 里卸载）")
+	fmt.Println("  启动    webhook-zq tray      然后看任务栏右下角（新图标默认在 ^ 溢出区里）")
+	fmt.Println("  常显    Windows 11 默认把新图标收进 ^ 溢出区。想常驻右下角：")
+	fmt.Println("         设置 → 个性化 → 任务栏 → 其他系统任务栏图标 → webhook-zq 打开开关")
+	fmt.Println("  卸载    webhook-zq uninstall（或托盘图标右键 → 卸载 webhook-zq）")
 
 	return nil
 }

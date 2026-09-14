@@ -33,6 +33,7 @@ import (
 	"github.com/yuandzhang/webhook-zq/internal/replay"
 	"github.com/yuandzhang/webhook-zq/internal/retention"
 	"github.com/yuandzhang/webhook-zq/internal/storage/postgres"
+	"github.com/yuandzhang/webhook-zq/internal/tray"
 	"github.com/yuandzhang/webhook-zq/internal/version"
 	"github.com/yuandzhang/webhook-zq/web"
 )
@@ -422,6 +423,15 @@ func (cmd *command) Run(parentCtx context.Context, log *zap.Logger, file *config
 			log.Error("http server stopped with an error", zap.Error(serveErr))
 		}
 	}()
+
+	// The tray icon is this process's face to a non-terminal user: bring it
+	// up now that the port is real, unless the tray spawned us (tray ->
+	// start -> tray is otherwise a loop with an icon as its only symptom).
+	// Failure is silent by design - a missing tray (Linux, CI, a stripped
+	// binary) must never take the server down with it.
+	if !tray.SpawnedFromTray() {
+		tray.SpawnFromServer(cmd.options.port)
+	}
 
 	<-ctx.Done()
 

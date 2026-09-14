@@ -19,12 +19,14 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/urfave/cli/v3"
 	"go.uber.org/zap"
 
 	"github.com/yuandzhang/webhook-zq/internal/config"
+	"github.com/yuandzhang/webhook-zq/internal/tray"
 )
 
 // defaultDBName is the database name this app is documented to use.
@@ -56,12 +58,50 @@ func NewCommand(log *zap.Logger) *cli.Command {
 			},
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
-			return run(ctx, c.Bool("yes"), c.Bool("drop-database"))
+			if err := coordinateWithTray(); err != nil {
+				return err
+			}
+
+			return Run(ctx, c.Bool("yes"), c.Bool("drop-database"))
 		},
 	}
 }
 
-func run(ctx context.Context, yes, allowDrop bool) error {
+// trayAckTimeout is the window a signalled tray gets to exit cleanly: the
+// normal shutdown (drop icon, stop service, release) takes under a second,
+// so 3s already means "not listening". Firmly alive, not mid-exit - the
+// distinction the single-instance mutex cannot make on its own.
+const trayAckTimeout = 3 * time.Second
+
+// coordinateWithTray keeps a direct `uninstall` (typed by hand, or launched
+// from "Apps & features") from deleting the binary out from under a live
+// tray. The tray gets the exit signal and the ack window; one that survives
+// both is treated as firmly alive and shown the sanctioned paths. A missing
+// tray (non-Windows, not started) answers ErrNoTray and the flow continues
+// untouched.
+//
+// Run deliberately does not call this: `tray --uninstall` is itself the
+// signaler and must tolerate a stuck tray (the process sweep is its
+// backstop) rather than bail out here.
+func coordinateWithTray() error {
+	if err := tray.RequestExit(); err != nil {
+		return nil // no tray to coordinate with
+	}
+
+	if tray.WaitExited(trayAckTimeout) {
+		return nil // it heard us and left
+	}
+
+	return cli.Exit(fmt.Errorf(
+		"检测到托盘正在运行（webhook-zq tray）。\n"+
+			"请先右键托盘图标 → 退出，再重新运行卸载；\n"+
+			"或直接用托盘菜单 → 卸载 webhook-zq。"), 1)
+}
+
+// Run executes the uninstall flow in this process. Exported for the tray's
+// `tray --uninstall` path, which needs the same interactive gates (pause
+// included) as a manual uninstall, driven by whatever stdin the caller has.
+func Run(ctx context.Context, yes, allowDrop bool) error {
 	items := platformItems()
 
 	dbItem := scanDatabase(ctx)
@@ -74,6 +114,8 @@ func run(ctx context.Context, yes, allowDrop bool) error {
 
 	if len(items) == 0 {
 		fmt.Println("未发现任何已安装内容，无需卸载。")
+
+		maybePause(yes)
 
 		return nil
 	}
@@ -100,6 +142,8 @@ func run(ctx context.Context, yes, allowDrop bool) error {
 
 		if !ok {
 			fmt.Println("已取消，未做任何修改。")
+
+			maybePause(yes)
 
 			return nil
 		}
@@ -140,6 +184,8 @@ func run(ctx context.Context, yes, allowDrop bool) error {
 	if failed > 0 {
 		fmt.Printf("%d 项失败，其余已完成。\n", failed)
 
+		maybePause(yes)
+
 		return fmt.Errorf("%d removal step(s) failed", failed)
 	}
 
@@ -148,6 +194,8 @@ func run(ctx context.Context, yes, allowDrop bool) error {
 	if dbItem != nil && !dropDB {
 		fmt.Println("数据库已保留（如需删除：webhook-zq uninstall --drop-database）。")
 	}
+
+	maybePause(yes)
 
 	return nil
 }

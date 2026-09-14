@@ -75,15 +75,20 @@ func registerAppList(exePath, appVersion string) error {
 
 // enableAutostart registers a per-user logon task. A scheduled task needs no
 // elevation either, unlike a Windows service.
+//
+// The task target is `tray`, not `start`: the tray adopts or starts the
+// service hidden and redirects its log, which kills the permanent black
+// console a logon-run `start` used to leave on screen - and gives the user
+// the icon they actually asked autostart for in the first place.
 func enableAutostart(exePath string) error {
 	// #nosec G204 -- fixed command; the only variable is the installed exe path.
 	out, err := exec.Command("schtasks", "/Create", "/TN", "webhook-zq",
-		"/SC", "ONLOGON", "/TR", `"`+exePath+`" start`, "/F").CombinedOutput()
+		"/SC", "ONLOGON", "/TR", `"`+exePath+`" tray`, "/F").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("cannot register the logon task: %w: %s", err, out)
 	}
 
-	fmt.Println("已注册开机自启（登录时自动 start）。")
+	fmt.Println("已注册开机自启（登录时自动启动托盘，后台运行无黑窗）。")
 
 	return nil
 }

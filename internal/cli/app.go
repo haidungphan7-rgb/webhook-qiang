@@ -13,7 +13,8 @@ import (
 	installcmd "github.com/yuandzhang/webhook-zq/internal/cli/install"
 	migratecmd "github.com/yuandzhang/webhook-zq/internal/cli/migrate"
 	"github.com/yuandzhang/webhook-zq/internal/cli/start"
-	"github.com/yuandzhang/webhook-zq/internal/cli/status"
+	statuscmd "github.com/yuandzhang/webhook-zq/internal/cli/status"
+	traycmd "github.com/yuandzhang/webhook-zq/internal/cli/tray"
 	uninstallcmd "github.com/yuandzhang/webhook-zq/internal/cli/uninstall"
 	"github.com/yuandzhang/webhook-zq/internal/logger"
 	"github.com/yuandzhang/webhook-zq/internal/version"
@@ -85,10 +86,11 @@ func NewApp() *cli.Command {
 			start.NewCommand(log, defaultHttpPort),
 			migratecmd.NewCommand(log),
 			doctor.NewCommand(log),
-			status.NewCommand(log),
+			statuscmd.NewCommand(log),
 			configcmd.NewCommand(log),
 			installcmd.NewCommand(log),
 			uninstallcmd.NewCommand(log),
+			traycmd.NewCommand(),
 		},
 		Version: fmt.Sprintf("%s (%s)", version.Version(), runtime.Version()),
 		Flags: []cli.Flag{ // global flags

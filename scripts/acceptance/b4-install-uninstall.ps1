@@ -268,7 +268,7 @@ Check 'A5 install --autostart exit 0'  ($r3.Code -eq 0)
 Check 'A5 logon task created'          (Test-Task)
 $xml = (& schtasks.exe /Query /TN webhook-zq /XML 2>&1 | Out-String)
 Check 'A5 task runs installed exe'     ($xml.ToLower().Contains($InstExe.ToLower()))
-Check 'A5 task argument is start'      ($xml -match '<Arguments>start</Arguments>')
+Check 'A5 task argument is tray'      ($xml -match '<Arguments>tray</Arguments>')
 
 # I9: install captures the shell's DATABASE_URL into the config file, so the
 # autostart task (bare `start`, empty scheduled env) finds a DSN. An existing
