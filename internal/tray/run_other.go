@@ -10,5 +10,5 @@ import "fmt"
 func Run(opts Options) error {
 	_ = opts
 
-	return fmt.Errorf("%s", errUnsupported)
+	return fmt.Errorf("tray is not supported on this platform")
 }
