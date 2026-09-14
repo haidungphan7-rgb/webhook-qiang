@@ -193,19 +193,65 @@ func NewCommand(log *zap.Logger, defaultPort uint16) *cli.Command { //nolint:fun
 				cmd.options.addr = "0.0.0.0"
 			}
 
-			return cmd.Run(ctx, log)
+			// The config file is the layer between the environment and the defaults -
+			// the same precedence `config explain` prints. The autostart logon task
+			// runs `start` with no environment of its own, so without this layer it
+			// has no database url at all.
+			file, err := loadConfigFile()
+			if err != nil {
+				return err
+			}
+
+			cmd.options.databaseURL = resolveDatabaseURL(cmd.options.databaseURL, file)
+
+			cmd.options.addr, cmd.options.port = config.ApplyListen(
+				cmd.options.addr, cmd.options.port, file, c.IsSet)
+
+			return cmd.Run(ctx, log, file, c.IsSet)
 		},
 	}
 
 	return cmd.c
 }
 
+// loadConfigFile reads the user's config file. A missing file is fine (Load
+// returns an empty one); a broken file is not, because silently ignoring it
+// would mean the instance runs without values the user believes are set.
+func loadConfigFile() (*config.File, error) {
+	path, err := config.DefaultPath()
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve the config path: %w", err)
+	}
+
+	f, _, err := config.Load(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read the config file (%s): %w", path, err)
+	}
+
+	return f, nil
+}
+
+// resolveDatabaseURL layers the two sources a bare `start` has: an explicit
+// flag/env value wins, then the config file. An empty result is handled by Run,
+// which turns it into setup instructions.
+func resolveDatabaseURL(flagValue string, file *config.File) string {
+	if flagValue != "" {
+		return flagValue
+	}
+
+	if file != nil {
+		return file.DatabaseURL
+	}
+
+	return ""
+}
+
 // Run starts the application and blocks until the context is cancelled.
-func (cmd *command) Run(parentCtx context.Context, log *zap.Logger) error { //nolint:funlen
+func (cmd *command) Run(parentCtx context.Context, log *zap.Logger, file *config.File, provided func(string) bool) error { //nolint:funlen
 	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
 
-	settings, err := cmd.buildSettings()
+	settings, err := cmd.buildSettings(file, provided)
 	if err != nil {
 		return err
 	}
@@ -215,7 +261,7 @@ func (cmd *command) Run(parentCtx context.Context, log *zap.Logger) error { //no
 		// external dependency, so the error has to double as setup instructions.
 		// A one line message here means the user knows something is missing but not
 		// what to install, and the session ends before it has started.
-		return errors.New(`database url is required (--database-url or DATABASE_URL)
+		return errors.New(`database url is required (--database-url, DATABASE_URL, or "config set database_url")
 
 这个程序需要一个 PostgreSQL 数据库（唯一的外部依赖）。三种方式任选：
 
@@ -386,7 +432,7 @@ func (cmd *command) Run(parentCtx context.Context, log *zap.Logger) error { //no
 	return nil
 }
 
-func (cmd *command) buildSettings() (*config.AppSettings, error) {
+func (cmd *command) buildSettings(file *config.File, provided func(string) bool) (*config.AppSettings, error) {
 	s := config.AppSettings{
 		PublicURLRoot:      strings.TrimRight(cmd.options.publicURLRoot, "/"),
 		MaxRequestBodySize: cmd.options.maxRequestBodySize,
@@ -406,6 +452,11 @@ func (cmd *command) buildSettings() (*config.AppSettings, error) {
 		TrustProxy:         cmd.options.trustProxyHeader,
 		MaxPageSize:        config.DefaultMaxPageSize,
 	}
+
+	// The config file fills every field the user did not set explicitly.
+	// `provided` is true for both flags and environment variables, so the file
+	// never overrides anything the user asked for on this run.
+	config.Apply(&s, file, provided)
 
 	if s.MaxRequestBodySize == 0 {
 		s.MaxRequestBodySize = config.DefaultMaxRequestBodySize

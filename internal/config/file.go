@@ -79,6 +79,18 @@ func DefaultPath() (string, error) {
 	return defaultPath(runtime.GOOS, os.Getenv)
 }
 
+// AppDir is the per-application directory the config file lives in. `install`
+// uses it to place the binary next to the config (bin\ on Windows) so both the
+// program and its settings are managed as one unit when uninstalling.
+func AppDir() (string, error) {
+	base, err := userConfigDir(runtime.GOOS, os.Getenv)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve the user config directory: %w", err)
+	}
+
+	return filepath.Join(base, "webhook-zq"), nil
+}
+
 // defaultPath is the injectable half of DefaultPath. Taking the platform and the
 // environment lookup as arguments is what lets the tests cover all three platforms on
 // any host - runtime.GOOS cannot be changed with t.Setenv.

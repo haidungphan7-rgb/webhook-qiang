@@ -1,6 +1,6 @@
 module github.com/yuandzhang/webhook-zq
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/google/uuid v1.6.0
@@ -10,6 +10,7 @@ require (
 	github.com/urfave/cli-docs/v3 v3.1.0
 	github.com/urfave/cli/v3 v3.9.0
 	go.uber.org/zap v1.28.0
+	golang.org/x/sys v0.39.0
 )
 
 require (
