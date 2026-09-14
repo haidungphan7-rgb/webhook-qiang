@@ -19,6 +19,7 @@ import (
 	"github.com/urfave/cli/v3"
 	"go.uber.org/zap"
 
+	"github.com/yuandzhang/webhook-zq/internal/console"
 	"github.com/yuandzhang/webhook-zq/internal/migrate"
 	"github.com/yuandzhang/webhook-zq/web"
 )
@@ -60,7 +61,17 @@ func NewCommand(log *zap.Logger) *cli.Command {
 			},
 		},
 		Action: func(ctx context.Context, _ *cli.Command) error {
-			return run(ctx, log, dsn, port)
+			err := run(ctx, log, dsn, port)
+
+			// The doctor runs in three places: a user terminal (no
+			// pause), a script (no pause) and the tray's "自检" menu
+			// item, which opens a console Windows created just for
+			// this process. Without the pause that window closes the
+			// instant the report prints - the "结果" in 自检并显示结果
+			// never shown.
+			console.PauseIfOwned("按回车键关闭本窗口…")
+
+			return err
 		},
 	}
 }

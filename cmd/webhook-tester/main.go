@@ -2,18 +2,35 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
 
-	"github.com/yuandzhang/webhook-zq/internal/cli"
+	urfavecli "github.com/urfave/cli/v3"
+
+	appcli "github.com/yuandzhang/webhook-zq/internal/cli"
 )
 
 // main CLI application entrypoint.
 func main() {
 	if err := run(); err != nil {
+		// ExitCoder is the published contract between subcommands and
+		// scripts: status (0/3/4), doctor (0/1), tray --exit (0/1).
+		// urfave/cli already prints and exits for most of these inside
+		// Run; this is the backstop for every path it does not cover,
+		// and it passes the code through instead of flattening it.
+		var exitErr urfavecli.ExitCoder
+		if errors.As(err, &exitErr) {
+			if msg := exitErr.Error(); msg != "" {
+				_, _ = fmt.Fprintln(os.Stderr, msg)
+			}
+
+			os.Exit(exitErr.ExitCode())
+		}
+
 		_, _ = fmt.Fprintln(os.Stderr, err.Error())
 
 		os.Exit(1)
@@ -28,5 +45,5 @@ func run() error {
 	var ctx, cancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	return cli.NewApp().Run(ctx, os.Args)
+	return appcli.NewApp().Run(ctx, os.Args)
 }

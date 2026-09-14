@@ -80,6 +80,11 @@ func registerAppList(exePath, appVersion string) error {
 // service hidden and redirects its log, which kills the permanent black
 // console a logon-run `start` used to leave on screen - and gives the user
 // the icon they actually asked autostart for in the first place.
+//
+// schtasks has no working-directory switch, so the task starts with CWD =
+// System32. Nothing depends on it: the tray pins its own working directory
+// to the binary's folder first thing in tray.Run, and every path the tray
+// and its spawned service touch resolves absolute under the app dir.
 func enableAutostart(exePath string) error {
 	// #nosec G204 -- fixed command; the only variable is the installed exe path.
 	out, err := exec.Command("schtasks", "/Create", "/TN", "webhook-zq",

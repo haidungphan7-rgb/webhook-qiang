@@ -9,6 +9,7 @@ package tray
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -66,6 +67,16 @@ func Run(opts Options) error {
 	// keeps a logon task from flashing a black window at the user.
 	freeConsole()
 
+	// Second breath: pin the working directory to the binary's own folder.
+	// Task Scheduler starts logon tasks with CWD = System32; every path the
+	// tray itself builds is absolute, but the spawned `start` inherits this
+	// CWD, and anything it (or a plugin) resolves relatively would silently
+	// land in the wrong place. One Chdir here makes the whole process tree
+	// launch-point-independent.
+	if exe, err := os.Executable(); err == nil {
+		_ = os.Chdir(filepath.Dir(exe))
+	}
+
 	mu, ok := acquireInstance()
 	if !ok {
 		// Second instance: the only useful action is surfacing the
@@ -101,7 +112,9 @@ func Run(opts Options) error {
 	// so the next tray never adopts a half-dead instance. The uninstaller
 	// path is the exception - it owns process cleanup from here on.
 	if !a.uninstalling.Load() {
-		stopService()
+		if err := stopService(); err != nil {
+			appendTrayLog("stop service on quit: %v", err)
+		}
 	}
 
 	releaseInstance(mu)
@@ -210,6 +223,18 @@ func colourOf(s iconState) string {
 // only variable because the pid would need a process sweep nobody should run
 // on every poll tick.
 func (a *app) logTransition(s iconState) {
+	if s == stateRunning {
+		appendTrayLog("icon blue: service reachable (port %d)", a.opts.Port)
+	} else {
+		appendTrayLog("icon grey: service unreachable (port %d)", a.opts.Port)
+	}
+}
+
+// appendTrayLog writes one line to logs/tray.log - the tray's own trail for
+// spawn failures, stop failures and state flips. Every failure is silent to
+// the user by design (the icon must never nag), which is exactly why each
+// one owes a line here.
+func appendTrayLog(format string, args ...any) {
 	path, err := trayLogPath()
 	if err != nil {
 		return
@@ -227,13 +252,7 @@ func (a *app) logTransition(s iconState) {
 
 	defer f.Close()
 
-	if s == stateRunning {
-		_, _ = fmt.Fprintf(f, "%s icon blue: service reachable (port %d)\n",
-			time.Now().Format(time.RFC3339), a.opts.Port)
-	} else {
-		_, _ = fmt.Fprintf(f, "%s icon grey: service unreachable (port %d)\n",
-			time.Now().Format(time.RFC3339), a.opts.Port)
-	}
+	fmt.Fprintf(f, "%s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
 }
 
 // poll refreshes the icon on a fixed cadence. Icon colour is a pure function
@@ -291,7 +310,16 @@ func (a *app) toggle() {
 	defer a.toggleMu.Unlock()
 
 	if healthy(a.opts.Port) {
-		stopService() // grey follows on the next poll beat
+		// grey follows on the next poll beat; a failed kill must at
+		// least leave the trail and the honest blue on screen.
+		if err := stopService(); err != nil {
+			appendTrayLog("stop service from menu: %v", err)
+
+			a.setState(stateRunning)
+
+			return
+		}
+
 		a.spawned.Store(false)
 		a.setState(stateStopped)
 
@@ -323,15 +351,21 @@ func (a *app) ensureService() {
 func (a *app) spawnService() {
 	exe, err := os.Executable()
 	if err != nil {
+		appendTrayLog("spawn service failed: cannot locate own executable: %v", err)
+
 		return
 	}
 
 	logPath, err := serverLogPath()
 	if err != nil {
+		appendTrayLog("spawn service failed: cannot resolve the log path: %v", err)
+
 		return
 	}
 
 	if mkErr := os.MkdirAll(parentDir(logPath), 0o755); mkErr != nil {
+		appendTrayLog("spawn service failed: cannot create the log directory: %v", mkErr)
+
 		return
 	}
 
@@ -339,6 +373,8 @@ func (a *app) spawnService() {
 	// directory it lives in, and 0644 matches what the logger would create.
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
+		appendTrayLog("spawn service failed: cannot open %s: %v", logPath, err)
+
 		return
 	}
 
@@ -346,6 +382,8 @@ func (a *app) spawnService() {
 
 	job, err := newJobObject()
 	if err != nil {
+		appendTrayLog("spawn service failed: %v", err)
+
 		return
 	}
 
@@ -355,6 +393,7 @@ func (a *app) spawnService() {
 	cmd, err := spawnHidden(exe, []string{"start", "--port", fmt.Sprint(a.opts.Port)},
 		[]string{FromTrayEnv}, logFile, logFile)
 	if err != nil {
+		appendTrayLog("spawn service failed (port %d): %v", a.opts.Port, err)
 		job.close()
 
 		return
@@ -371,6 +410,7 @@ func (a *app) spawnService() {
 		if err := job.assign(proc); err != nil {
 			// The job is only the crash net; the stop path kills by exe
 			// path. A failed assign is survivable.
+			appendTrayLog("job assign failed (pid %d): %v", cmd.Process.Pid, err)
 			job.close()
 		}
 	}
@@ -378,10 +418,17 @@ func (a *app) spawnService() {
 	a.setState(stateStarting)
 
 	go func() {
-		_ = cmd.Wait()
+		waitErr := cmd.Wait()
 
-		// The spawned service is gone. Whatever the port says now is
-		// the truth; if nothing answers, show stopped.
+		// The spawned service is gone. A non-zero exit is the crash
+		// reason itself; without this line "service never came up" has
+		// no trail outside server.log's last words.
+		if waitErr != nil {
+			appendTrayLog("service process exited: %v", waitErr)
+		}
+
+		// Whatever the port says now is the truth; if nothing answers,
+		// show stopped.
 		time.Sleep(500 * time.Millisecond)
 
 		if a.stopping.Load() {
@@ -404,7 +451,10 @@ func (a *app) watchExit(ev windows.Handle) {
 		return
 	}
 
-	stopService()
+	if err := stopService(); err != nil {
+		appendTrayLog("stop service on --exit: %v", err)
+	}
+
 	a.shutdown()
 }
 
@@ -436,16 +486,27 @@ func (a *app) beginUninstall() {
 
 	exe, err := os.Executable()
 	if err != nil {
+		errorDialog("无法定位程序自身，卸载未开始。\n\n" + err.Error())
+
 		return
 	}
 
 	a.uninstalling.Store(true)
 
-	stopService()
+	if err := stopService(); err != nil {
+		appendTrayLog("stop service before uninstall: %v", err)
+	}
 
 	// Interactive on purpose: no --yes. The uninstall wizard in its own
 	// console is the same experience as "设置 → 应用 → 卸载".
 	if err := spawnNewConsole(exe, "uninstall"); err != nil {
+		// The user just confirmed an uninstall; walking away silently
+		// would read as "the menu item does nothing". Put the failure
+		// on screen and stay alive so they can retry or use the
+		// terminal path instead.
+		errorDialog("无法打开卸载向导，托盘将继续运行。\n\n可在终端执行：\n" +
+			`    "` + exe + `" uninstall` + "\n\n" + err.Error())
+
 		a.uninstalling.Store(false)
 
 		return

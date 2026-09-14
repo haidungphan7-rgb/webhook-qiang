@@ -22,6 +22,7 @@ import (
 
 	"github.com/yuandzhang/webhook-zq/internal/config"
 	"github.com/yuandzhang/webhook-zq/internal/version"
+	"github.com/yuandzhang/webhook-zq/internal/winpath"
 )
 
 // NewCommand builds the `install` command.
@@ -67,6 +68,16 @@ func run(autostart bool) error {
 	}
 
 	fmt.Println(`已注册到 "设置 → 应用 → 安装的应用"（搜索 webhook-zq 可见）。`)
+
+	// The user PATH is what turns "webhook-zq" into a command terminals can
+	// find. A failure is a note, not an abort: everything else installed
+	// fine, and the full path still works.
+	if added, err := winpath.Add(filepath.Dir(dst)); err != nil {
+		fmt.Printf("注意：无法写入用户 PATH（%v）。仍可用全路径运行：%s\n", err, dst)
+	} else if added {
+		fmt.Printf("已加入用户 PATH（%s）。新开的终端里可直接运行 webhook-zq；已经开着的终端需重开生效。\n",
+			filepath.Dir(dst))
+	}
 
 	// The logon task runs the tray with no environment of its own, and the
 	// tray-spawned `start` reads the config file as the layer between the
@@ -114,10 +125,23 @@ func copyExecutable(src, dst string) error {
 		return fmt.Errorf("cannot create the installed binary: %w", err)
 	}
 
-	defer func() { _ = out.Close() }()
-
+	// Close is explicit and checked from here on: an ignored close error on
+	// the destination of a copy is exactly how truncated binaries ship and
+	// only blow up at first run on the target machine.
 	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+
 		return fmt.Errorf("cannot copy the binary: %w", err)
+	}
+
+	if err := out.Sync(); err != nil {
+		_ = out.Close()
+
+		return fmt.Errorf("cannot flush the installed binary: %w", err)
+	}
+
+	if err := out.Close(); err != nil {
+		return fmt.Errorf("cannot finalize the installed binary: %w", err)
 	}
 
 	return nil

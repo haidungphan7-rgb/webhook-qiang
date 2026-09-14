@@ -3,7 +3,6 @@
 package uninstallcmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,6 +15,8 @@ import (
 	"golang.org/x/sys/windows/registry"
 
 	"github.com/yuandzhang/webhook-zq/internal/config"
+	"github.com/yuandzhang/webhook-zq/internal/console"
+	"github.com/yuandzhang/webhook-zq/internal/winpath"
 )
 
 // appListKey mirrors the constant in internal/cli/install - the two packages
@@ -79,7 +80,31 @@ func platformItems() []item {
 		})
 	}
 
+	// The PATH entry install wrote, removed only when it is still there -
+	// a partial install still uninstalls cleanly.
+	if binDir := installBinDir(); binDir != "" && winpath.Contains(binDir) {
+		items = append(items, item{
+			label:  "PATH 环境变量",
+			detail: "用户 PATH 里的 " + binDir,
+			remove: func() error {
+				_, err := winpath.Remove(binDir)
+
+				return err
+			},
+		})
+	}
+
 	return items
+}
+
+// installBinDir mirrors the install target directory.
+func installBinDir() string {
+	appDir, err := config.AppDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(appDir, "bin")
 }
 
 // scanFiles reports the per-user application directory (binary, config with
@@ -303,20 +328,6 @@ func appListEntryExists() bool {
 	return err == nil
 }
 
-var (
-	kernel32DLL               = windows.NewLazySystemDLL("kernel32.dll")
-	procGetConsoleProcessList = kernel32DLL.NewProc("GetConsoleProcessList")
-)
-
-// consoleProcessCount reports how many processes share the current console.
-// x/sys/windows does not wrap GetConsoleProcessList, hence the lazy syscall.
-// 0 means the process has no console at all (detached, or pipes only).
-func consoleProcessCount() uint32 {
-	// #nosec G103 -- the pointer is the documented calling convention of the API.
-	n, _, _ := procGetConsoleProcessList.Call(2, uintptr(unsafe.Pointer(&[2]uint32{})))
-	return uint32(n)
-}
-
 // maybePause keeps the uninstaller's console open when Windows created it just
 // for this process - which is what happens when the entry is launched from
 // "设置 → 应用 → 安装的应用". Without a pause the window vanishes with the
@@ -324,14 +335,11 @@ func consoleProcessCount() uint32 {
 // the process list has two entries) and piped runs (no console) close as
 // before, and --yes never pauses: scripts own the console's lifetime.
 func maybePause(yes bool) {
-	if yes || consoleProcessCount() != 1 {
+	if yes {
 		return
 	}
 
-	fmt.Println("")
-	fmt.Print("按回车键关闭窗口…")
-
-	_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+	console.PauseIfOwned("按回车键关闭窗口…")
 }
 
 // removeAppDir deletes the application directory. When the uninstaller itself
@@ -346,7 +354,14 @@ func removeAppDir(appDir string) error {
 			return fmt.Errorf("cannot move the running binary out of %s: %w", appDir, err)
 		}
 
-		defer func() { _ = os.Remove(moved) }() // usually still locked; harmless.
+		defer func() {
+			// A process cannot delete its own image while running,
+			// so this normally reports failure. Say so with the path
+			// instead of silently leaving a mystery exe in Temp.
+			if err := os.Remove(moved); err != nil {
+				fmt.Printf("提示：卸载程序自身的临时副本需手动删除：%s\n", moved)
+			}
+		}()
 	}
 
 	if err := os.RemoveAll(appDir); err != nil {

@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -26,6 +27,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/yuandzhang/webhook-zq/internal/config"
+	"github.com/yuandzhang/webhook-zq/internal/console"
 	"github.com/yuandzhang/webhook-zq/internal/tray"
 )
 
@@ -59,6 +61,12 @@ func NewCommand(log *zap.Logger) *cli.Command {
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
 			if err := coordinateWithTray(); err != nil {
+				// The uninstall wizard can be launched from
+				// "设置 → 应用" where Windows opens a console just
+				// for it; returning now would slam that window shut
+				// on the message. Pause there first.
+				console.PauseIfOwned("按回车键关闭本窗口…")
+
 				return err
 			}
 
@@ -84,12 +92,21 @@ const trayAckTimeout = 3 * time.Second
 // signaler and must tolerate a stuck tray (the process sweep is its
 // backstop) rather than bail out here.
 func coordinateWithTray() error {
-	if err := tray.RequestExit(); err != nil {
+	err := tray.RequestExit()
+
+	switch {
+	case err == nil:
+		// Signalled; the ack window below decides.
+	case errors.Is(err, tray.ErrNoTray):
 		return nil // no tray to coordinate with
+	default:
+		// Could not signal it. The aliveness check below is the
+		// backstop: a released single-instance mutex means no live
+		// tray regardless of why the signal failed.
 	}
 
 	if tray.WaitExited(trayAckTimeout) {
-		return nil // it heard us and left
+		return nil // it heard us and left (or was never holding the mutex)
 	}
 
 	return cli.Exit(fmt.Errorf(

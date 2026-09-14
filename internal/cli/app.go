@@ -63,7 +63,7 @@ func NewApp() *cli.Command {
 
 	const defaultHttpPort uint16 = 8080
 
-	return &cli.Command{
+	app := &cli.Command{
 		Usage: "webhook tester",
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			_ = log.Sync() // sync previous logger instance
@@ -98,4 +98,14 @@ func NewApp() *cli.Command {
 			&logFormatFlag,
 		},
 	}
+
+	// A bare `webhook-zq` (double-clicked, or typed with nothing after it)
+	// must do the one thing a desktop user means by it: show up in the tray
+	// and bring the service. On other platforms there is no tray to default
+	// to, so bare invocation keeps printing help.
+	if runtime.GOOS == "windows" {
+		app.DefaultCommand = "tray"
+	}
+
+	return app
 }

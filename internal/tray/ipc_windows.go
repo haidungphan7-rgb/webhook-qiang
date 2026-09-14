@@ -111,8 +111,15 @@ func nobodyHoldsMutex(timeout uint32) bool {
 // Events, unlike the mutex, are created up front and stay named for the whole
 // tray lifetime so a control invocation can open them at any moment.
 func createControlEvents() (exit, uninstall windows.Handle, err error) {
-	exitName, _ := windows.UTF16PtrFromString(exitEventName)
-	uninstallName, _ := windows.UTF16PtrFromString(uninstallEventName)
+	exitName, err := windows.UTF16PtrFromString(exitEventName)
+	if err != nil {
+		return 0, 0, fmt.Errorf("cannot encode the exit event name: %w", err)
+	}
+
+	uninstallName, err := windows.UTF16PtrFromString(uninstallEventName)
+	if err != nil {
+		return 0, 0, fmt.Errorf("cannot encode the uninstall event name: %w", err)
+	}
 
 	if exit, err = windows.CreateEvent(nil, 0, 0, exitName); err != nil {
 		return 0, 0, fmt.Errorf("cannot create the exit event: %w", err)
@@ -249,15 +256,45 @@ func canonicalPath(p string) string {
 	return string(out)
 }
 
-// stopService terminates every other process running our binary. Terminate
-// is used deliberately: the service has no IPC to ask for a graceful stop,
-// and the tray already showed the user what "exit" means.
-func stopService() {
-	for _, pid := range ourProcessPids() {
-		if h, err := windows.OpenProcess(windows.PROCESS_TERMINATE, false, pid); err == nil {
-			_ = windows.TerminateProcess(h, 1)
-			_ = windows.CloseHandle(h)
+// stopService terminates every other process running our binary and reports
+// whether the sweep was clean. Terminate is used deliberately: the service
+// has no IPC to ask for a graceful stop, and the tray already showed the
+// user what "exit" means. The error is for the trail (tray.log) and for
+// callers that must not report success over a still-alive service.
+func stopService() error {
+	var (
+		stopped int
+		targets = ourProcessPids()
+		errs    []error
+	)
+
+	for _, pid := range targets {
+		h, err := windows.OpenProcess(windows.PROCESS_TERMINATE, false, pid)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("open pid %d: %w", pid, err))
+
+			continue
 		}
+
+		killErr := windows.TerminateProcess(h, 1)
+		_ = windows.CloseHandle(h)
+
+		if killErr != nil {
+			errs = append(errs, fmt.Errorf("terminate pid %d: %w", pid, killErr))
+
+			continue
+		}
+
+		stopped++
+	}
+
+	switch {
+	case len(errs) > 0:
+		return fmt.Errorf("stopped %d/%d, failed: %w", stopped, len(targets), errors.Join(errs...))
+	case stopped == 0 && len(targets) > 0:
+		return fmt.Errorf("no process could be terminated (%d targeted)", len(targets))
+	default:
+		return nil
 	}
 }
 
@@ -321,6 +358,19 @@ func confirmDialog(text, caption string) bool {
 		windows.MB_YESNO|windows.MB_ICONQUESTION|windows.MB_SETFOREGROUND)
 
 	return rc == idYes
+}
+
+// errorDialog is how a background-only surface (the tray) reports a failure
+// the user acted on: on screen, modal, with the cause. Silent failure after
+// an explicit user action reads as "the menu item does nothing".
+//
+// #nosec G104 -- if even the MessageBox fails there is no channel left; the
+// caller's log line in tray.log is the remaining trail.
+func errorDialog(text string) {
+	t, _ := windows.UTF16PtrFromString(text)
+	c, _ := windows.UTF16PtrFromString("webhook-zq")
+
+	_, _ = windows.MessageBox(0, t, c, windows.MB_OK|windows.MB_ICONERROR|windows.MB_SETFOREGROUND)
 }
 
 // spawnFlagsHide is the creation flag set for background children: no window,

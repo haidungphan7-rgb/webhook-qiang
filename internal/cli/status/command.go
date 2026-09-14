@@ -13,9 +13,7 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -27,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/yuandzhang/webhook-zq/internal/config"
+	"github.com/yuandzhang/webhook-zq/internal/healthz"
 	"github.com/yuandzhang/webhook-zq/internal/version"
 	"github.com/yuandzhang/webhook-zq/web"
 )
@@ -98,7 +97,7 @@ func NewCommand(log *zap.Logger) *cli.Command {
 				FrontendEmbedded:  frontendEmbedded(),
 				Version:           version.Version(),
 				BuildTime:         version.BuildTime(),
-				LogPath:           filepath.Join("logs", "server.log"),
+				LogPath:           serverLogPath(),
 			}
 
 			if pid := pidListeningOn(port); pid > 0 {
@@ -189,23 +188,18 @@ func boolText(ok bool) string {
 }
 
 func healthy(port uint16) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	return healthz.Check(port)
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		fmt.Sprintf("http://127.0.0.1:%d/healthz", port), nil)
-	if err != nil {
-		return false
+// serverLogPath reports where the tray's spawned service writes its log -
+// the same absolute path the tray itself resolves, so the report cannot
+// drift with the caller's working directory.
+func serverLogPath() string {
+	if appDir, err := config.AppDir(); err == nil {
+		return filepath.Join(appDir, "logs", "server.log")
 	}
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return false
-	}
-
-	defer res.Body.Close()
-
-	return res.StatusCode == http.StatusOK
+	return filepath.Join("logs", "server.log")
 }
 
 // databaseReachable dials the host in the DSN rather than opening a real connection: a
@@ -366,27 +360,7 @@ func parsePid(goos, out string, port uint16) int {
 	return 0
 }
 
-func processPath(pid int) string {
-	if runtime.GOOS == "windows" {
-		// #nosec G204 -- fixed command; the pid comes from the local port table.
-		out, err := exec.Command("wmic", "process", "where",
-			fmt.Sprintf("ProcessId=%d", pid), "get", "ExecutablePath", "/value").Output()
-		if err != nil {
-			return ""
-		}
-
-		for _, line := range strings.Split(string(out), "\n") {
-			if v, ok := strings.CutPrefix(strings.TrimSpace(line), "ExecutablePath="); ok {
-				return strings.TrimSpace(v)
-			}
-		}
-	}
-
-	// Linux and macOS: /proc or lsof, neither of which is worth the extra code here -
-	// the path is only used to prove the process is ours.
-	if p, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid)); err == nil {
-		return p
-	}
-
-	return ""
-}
+// processPath resolves the executable behind a pid. The implementation lives
+// in processpath_*.go: the Windows one uses the native API (wmic, the
+// previous answer, is gone from current installs), the other one reads
+// /proc. A failure is an empty string, never an error.
